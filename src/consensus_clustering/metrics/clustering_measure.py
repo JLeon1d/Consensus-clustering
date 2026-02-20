@@ -27,12 +27,6 @@ def clustering_measure(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, floa
         - 'nmi': Normalized Mutual Information
         - 'purity': Clustering purity
 
-    Examples
-    --------
-    >>> y_true = np.array([0, 0, 1, 1, 2, 2])
-    >>> y_pred = np.array([1, 1, 0, 0, 2, 2])
-    >>> metrics = clustering_measure(y_true, y_pred)
-    >>> print(f"ACC: {metrics['acc']:.3f}, NMI: {metrics['nmi']:.3f}")
     """
     y_true = np.asarray(y_true).ravel()
     y_pred = np.asarray(y_pred).ravel()

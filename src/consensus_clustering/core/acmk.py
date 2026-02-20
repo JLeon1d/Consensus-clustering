@@ -57,14 +57,6 @@ class ACMK:
     objective_history_ : list
         History of objective function values
 
-    Examples
-    --------
-    >>> from consensus_clustering.clustering.base_generation import generate_base_clusterings
-    >>> X = np.random.randn(100, 10)
-    >>> base_data = generate_base_clusterings(X, n_clusters=5, m_base=10)
-    >>> acmk = ACMK(n_clusters=5, m_base=10, lambda_=0.1)
-    >>> acmk.fit(X, **base_data)
-    >>> labels = acmk.predict(method='spectral')
     """
 
     def __init__(

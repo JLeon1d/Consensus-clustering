@@ -48,13 +48,7 @@ def generate_base_clusterings(
         - 'labels': List of cluster labels (m_base arrays)
         - 'metrics': Evaluation metrics if y_true provided (optional)
 
-    Examples
-    --------
-    >>> X = np.random.randn(100, 10)
-    >>> base_data = generate_base_clusterings(X, n_clusters=5, m_base=10)
-    >>> print(base_data['W'].shape)
     (100, 100)
-    >>> print(len(base_data['G']))
     10
     """
     n_samples = X.shape[0]
@@ -120,10 +114,6 @@ def save_base_clusterings(
     format : str, default='pickle'
         Output format ('pickle', 'mat', 'npz')
 
-    Examples
-    --------
-    >>> base_data = generate_base_clusterings(X, n_clusters=5, m_base=10)
-    >>> save_base_clusterings(base_data, 'base_clusterings.pkl')
     """
     from ..utils.data_io import save_results
 
@@ -149,9 +139,6 @@ def load_base_clusterings(filepath: str, format: str = "auto") -> Dict[str, any]
     base_data : dict
         Base clustering data
 
-    Examples
-    --------
-    >>> base_data = load_base_clusterings('base_clusterings.pkl')
     """
     import pickle
     from pathlib import Path

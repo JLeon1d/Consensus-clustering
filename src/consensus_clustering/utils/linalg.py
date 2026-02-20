@@ -38,10 +38,6 @@ def eig1(
     eigval : np.ndarray
         Eigenvalues (c,)
 
-    Examples
-    --------
-    >>> L = np.array([[2, -1, 0], [-1, 2, -1], [0, -1, 2]])
-    >>> eigvec, eigval = eig1(L, c=2, is_max=False)
     """
     n = A.shape[0]
     c = min(c, n)
@@ -100,12 +96,6 @@ def discretisation(eigenvectors: np.ndarray, max_iter: int = 20) -> np.ndarray:
         Discrete cluster assignment matrix (n_samples x n_clusters)
         Each row has exactly one 1 and rest 0s
 
-    Examples
-    --------
-    >>> eigvec = np.random.randn(100, 5)
-    >>> discrete = discretisation(eigvec)
-    >>> assert discrete.shape == (100, 5)
-    >>> assert np.allclose(discrete.sum(axis=1), 1)
     """
     n, k = eigenvectors.shape
 

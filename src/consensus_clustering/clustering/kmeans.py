@@ -37,12 +37,6 @@ class LiteKMeans:
     n_iter_ : int
         Number of iterations run
 
-    Examples
-    --------
-    >>> X = np.random.randn(100, 10)
-    >>> kmeans = LiteKMeans(n_clusters=5, n_init=20)
-    >>> kmeans.fit(X)
-    >>> labels = kmeans.labels_
     """
 
     def __init__(
@@ -172,10 +166,6 @@ def litekmeans(
     inertia : float
         Sum of squared distances to closest cluster center
 
-    Examples
-    --------
-    >>> X = np.random.randn(100, 10)
-    >>> labels, centers, inertia = litekmeans(X, n_clusters=5, n_init=20)
     """
     kmeans = LiteKMeans(
         n_clusters=n_clusters,

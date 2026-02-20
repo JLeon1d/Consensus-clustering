@@ -24,10 +24,6 @@ def hungarian(cost_matrix: np.ndarray) -> tuple[np.ndarray, float]:
     total_cost : float
         Total cost of the optimal assignment
 
-    Examples
-    --------
-    >>> cost = np.array([[1, 2, 3], [2, 4, 6], [3, 6, 9]])
-    >>> assignment, cost = hungarian(cost)
     """
     # scipy's linear_sum_assignment minimizes cost
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
@@ -59,12 +55,6 @@ def best_map(L1: np.ndarray, L2: np.ndarray) -> np.ndarray:
     new_L2 : np.ndarray
         Permuted labels that best match L1
 
-    Examples
-    --------
-    >>> L1 = np.array([1, 1, 2, 2, 3, 3])
-    >>> L2 = np.array([2, 2, 3, 3, 1, 1])
-    >>> new_L2 = best_map(L1, L2)
-    >>> # new_L2 should match L1 better after permutation
     """
     L1 = L1.ravel()
     L2 = L2.ravel()

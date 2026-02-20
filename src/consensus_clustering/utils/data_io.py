@@ -30,10 +30,6 @@ def load_data(
     y : np.ndarray or None
         Labels array of shape (n_samples,), or None if not available
 
-    Examples
-    --------
-    >>> X, y = load_data('data/dataset.mat')
-    >>> X, y = load_data('data/dataset.npy', format='npy')
     """
     filepath = Path(filepath)
 
@@ -155,10 +151,6 @@ def save_results(
     format : str, default='pickle'
         Output format: 'pickle', 'mat', 'npy', 'npz', 'csv'
 
-    Examples
-    --------
-    >>> results = {'labels': labels, 'metrics': metrics}
-    >>> save_results(results, 'output/results.pkl')
     """
     filepath = Path(filepath)
     filepath.parent.mkdir(parents=True, exist_ok=True)
