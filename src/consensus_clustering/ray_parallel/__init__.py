@@ -1,12 +1,17 @@
 """Ray parallelization utilities for consensus clustering."""
 
-# Will be populated after implementing Ray parallel functions
-# from .parallel_kmeans import parallel_kmeans_multiple_runs
-# from .parallel_base_gen import parallel_generate_bases
-# from .parallel_grid_search import parallel_parameter_search
+from .utils import (
+    is_ray_available,
+    init_ray_if_needed,
+    shutdown_ray_if_initialized,
+    get_ray_status,
+)
+from .parallel_base_gen import generate_base_clusterings_parallel
 
 __all__ = [
-    # "parallel_kmeans_multiple_runs",
-    # "parallel_generate_bases",
-    # "parallel_parameter_search",
+    "is_ray_available",
+    "init_ray_if_needed",
+    "shutdown_ray_if_initialized",
+    "get_ray_status",
+    "generate_base_clusterings_parallel",
 ]

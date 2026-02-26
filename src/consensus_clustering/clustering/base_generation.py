@@ -16,6 +16,7 @@ def generate_base_clusterings(
     n_init: int = 1,
     random_state: Optional[int] = None,
     y_true: Optional[np.ndarray] = None,
+    use_ray: bool = False,
 ) -> Dict[str, any]:
     """
     Generate multiple base clusterings using k-means.
@@ -37,6 +38,10 @@ def generate_base_clusterings(
         Random seed for reproducibility
     y_true : np.ndarray or None, default=None
         True labels for evaluation (optional)
+    use_ray : bool, default=False
+        Whether to use Ray for parallel execution. If True and Ray is
+        available, base clusterings will be generated in parallel.
+        Falls back to sequential execution if Ray is not available.
 
     Returns
     -------
@@ -51,6 +56,15 @@ def generate_base_clusterings(
     (100, 100)
     10
     """
+    if use_ray:
+        from ..ray_parallel.utils import init_ray_if_needed
+        from ..ray_parallel.parallel_base_gen import generate_base_clusterings_parallel
+
+        if init_ray_if_needed(use_ray=True):
+            return generate_base_clusterings_parallel(
+                X, n_clusters, m_base, n_init, random_state, y_true
+            )
+
     n_samples = X.shape[0]
 
     W = np.zeros((n_samples, n_samples))

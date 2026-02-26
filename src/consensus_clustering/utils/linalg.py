@@ -115,7 +115,7 @@ def discretisation(eigenvectors: np.ndarray, max_iter: int = 20) -> np.ndarray:
     for iteration in range(max_iter):
         discrete_eigenvectors = discretise_eigenvector_data(eigenvectors @ R)
         U, S, Vt = np.linalg.svd(discrete_eigenvectors.T @ eigenvectors, full_matrices=False)
-        ncut_value = 2 * (n - np.trace(S))
+        ncut_value = 2 * (n - np.sum(S))
 
         if np.abs(ncut_value - last_objective) < np.finfo(float).eps or iteration >= max_iter - 1:
             break
