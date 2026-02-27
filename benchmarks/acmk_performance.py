@@ -68,44 +68,40 @@ def benchmark_acmk(n_nodes, n_clusters, m_base, lambda_=0.1, n_runs=3):
     avg_seq_acc = np.mean(seq_accs)
     print(f"Sequential: {avg_seq_time:.2f}s ± {std_seq_time:.2f}s, ACC: {avg_seq_acc:.4f}")
     
-    if is_ray_available():
-        ray_times = []
-        ray_accs = []
-        for run in range(n_runs):
-            start = time.time()
+    ray_times = []
+    ray_accs = []
+    for run in range(n_runs):
+        start = time.time()
             
-            base_data = generate_base_clusterings(
-                X,
-                n_clusters=n_clusters,
-                m_base=m_base,
-                random_state=42 + run,
-                use_ray=True
-            )
+        base_data = generate_base_clusterings(
+            X,
+            n_clusters=n_clusters,
+            m_base=m_base,
+            random_state=42 + run,
+            use_ray=True
+        )
             
-            acmk = ACMK(n_clusters=n_clusters, m_base=m_base, lambda_=lambda_)
-            acmk.fit(X, **base_data)
-            labels = acmk.predict(method='spectral')
+        acmk = ACMK(n_clusters=n_clusters, m_base=m_base, lambda_=lambda_)
+        acmk.fit(X, **base_data)
+        labels = acmk.predict(method='spectral')
             
-            ray_time = time.time() - start
-            ray_times.append(ray_time)
+        ray_time = time.time() - start
+        ray_times.append(ray_time)
             
-            from consensus_clustering.metrics import clustering_measure
-            metrics = clustering_measure(true_labels, labels)
-            ray_accs.append(metrics.get('ACC', 0.0))
+        from consensus_clustering.metrics import clustering_measure
+        metrics = clustering_measure(true_labels, labels)
+        ray_accs.append(metrics.get('ACC', 0.0))
+
+    avg_ray_time = np.mean(ray_times)
+    std_ray_time = np.std(ray_times)
+    avg_ray_acc = np.mean(ray_accs)
+    print(f"Ray parallel: {avg_ray_time:.2f}s ± {std_ray_time:.2f}s, ACC: {avg_ray_acc:.4f}")
         
-        avg_ray_time = np.mean(ray_times)
-        std_ray_time = np.std(ray_times)
-        avg_ray_acc = np.mean(ray_accs)
-        print(f"Ray parallel: {avg_ray_time:.2f}s ± {std_ray_time:.2f}s, ACC: {avg_ray_acc:.4f}")
+    speedup = avg_seq_time / avg_ray_time
+    print(f"Speedup: {speedup:.2f}x")
         
-        speedup = avg_seq_time / avg_ray_time
-        print(f"Speedup: {speedup:.2f}x")
-        
-        shutdown_ray_if_initialized()
-    else:
-        avg_ray_time = None
-        avg_ray_acc = None
-    
+    shutdown_ray_if_initialized()
+
     return avg_seq_time, avg_ray_time, avg_seq_acc, avg_ray_acc
 
 
@@ -115,14 +111,12 @@ def main():
     print("ACMK Algorithm Performance Benchmark")
     print("=" * 70)
     
-    if not is_ray_available():
-        print("\nRay is not installed. Install with: pip install ray>=2.9.0")
-        print("Running sequential benchmarks only.\n")
-    
+    assert is_ray_available()
+
     configs = [
-        {"n_nodes": 200, "n_clusters": 5, "m_base": 20},
-        {"n_nodes": 500, "n_clusters": 10, "m_base": 30},
-        {"n_nodes": 1000, "n_clusters": 10, "m_base": 50},
+        {"n_nodes": 200, "n_clusters": 5, "m_base": 10},
+        {"n_nodes": 500, "n_clusters": 10, "m_base": 10},
+        {"n_nodes": 1000, "n_clusters": 10, "m_base": 10},
     ]
     
     results = []
@@ -157,3 +151,14 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ======================================================================
+# Summary
+# ======================================================================
+# Nodes      Clusters   Base       Sequential      Ray             Speedup    ACC Diff
+# ----------------------------------------------------------------------
+# 200        5          10         6.83s           19.52s          0.35x      0.0000
+# 500        10         10         57.44s          74.72s          0.77x      0.0000
+# 1000       10         10         176.81s         184.33s         0.96x      0.0000
+# ======================================================================

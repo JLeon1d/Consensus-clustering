@@ -52,36 +52,33 @@ def benchmark_base_clustering(n_nodes, n_clusters, m_base, n_runs=3):
     avg_seq_time = np.mean(seq_times)
     std_seq_time = np.std(seq_times)
     print(f"Sequential: {avg_seq_time:.2f}s ± {std_seq_time:.2f}s")
+
+    ray_times = []
+    for run in range(n_runs):
+        start = time.time()
+        result_ray = generate_base_clusterings(
+            X,
+            n_clusters=n_clusters,
+            m_base=m_base,
+            random_state=42 + run,
+            use_ray=True
+        )
+        ray_time = time.time() - start
+        ray_times.append(ray_time)
+        
+    avg_ray_time = np.mean(ray_times)
+    std_ray_time = np.std(ray_times)
+    print(f"Ray parallel: {avg_ray_time:.2f}s ± {std_ray_time:.2f}s")
+        
+    speedup = avg_seq_time / avg_ray_time
+    print(f"Speedup: {speedup:.2f}x")
+        
+    w_diff = np.abs(result_seq['W'] - result_ray['W']).max()
+    print(f"Max W difference: {w_diff:.2e}")
+
+    shutdown_ray_if_initialized()
     
-    if is_ray_available():
-        ray_times = []
-        for run in range(n_runs):
-            start = time.time()
-            result_ray = generate_base_clusterings(
-                X,
-                n_clusters=n_clusters,
-                m_base=m_base,
-                random_state=42 + run,
-                use_ray=True
-            )
-            ray_time = time.time() - start
-            ray_times.append(ray_time)
-        
-        avg_ray_time = np.mean(ray_times)
-        std_ray_time = np.std(ray_times)
-        print(f"Ray parallel: {avg_ray_time:.2f}s ± {std_ray_time:.2f}s")
-        
-        speedup = avg_seq_time / avg_ray_time
-        print(f"Speedup: {speedup:.2f}x")
-        
-        w_diff = np.abs(result_seq['W'] - result_ray['W']).max()
-        print(f"Max W difference: {w_diff:.2e}")
-        
-        shutdown_ray_if_initialized()
-    else:
-        print("Ray not available, skipping parallel benchmark")
-    
-    return avg_seq_time, avg_ray_time if is_ray_available() else None
+    return avg_seq_time, avg_ray_time
 
 
 def main():
@@ -89,16 +86,14 @@ def main():
     print("=" * 70)
     print("Ray Performance Benchmark")
     print("=" * 70)
-    
-    if not is_ray_available():
-        print("\nRay is not installed. Install with: pip install ray>=2.9.0")
-        print("Running sequential benchmarks only.\n")
-    
+
+    assert is_ray_available()
+
     configs = [
-        {"n_nodes": 500, "n_clusters": 10, "m_base": 50},
-        {"n_nodes": 1000, "n_clusters": 10, "m_base": 100},
-        {"n_nodes": 2000, "n_clusters": 15, "m_base": 150},
-        {"n_nodes": 3000, "n_clusters": 20, "m_base": 200},
+        {"n_nodes": 1000, "n_clusters": 10, "m_base": 10},
+        {"n_nodes": 2000, "n_clusters": 15, "m_base": 10},
+        {"n_nodes": 4000, "n_clusters": 25, "m_base": 10},
+        {"n_nodes": 10000, "n_clusters": 30, "m_base": 10},
     ]
     
     results = []
@@ -129,3 +124,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ======================================================================
+# Nodes      Clusters   Base       Sequential      Ray             Speedup
+# ----------------------------------------------------------------------
+# 1000       10         10         0.63s           11.68s          0.05x
+# 2000       15         10         2.93s           7.18s           0.41x
+# 4000       25         10         5.87s           7.36s           0.80x
+# 10000      30         10         42.38s          42.84s          0.99x
+# ======================================================================
