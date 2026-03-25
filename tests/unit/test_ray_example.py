@@ -1,6 +1,7 @@
 """Example tests showing Ray test marking."""
 
 import pytest
+import ray
 
 
 class TestRayMarking:
@@ -14,11 +15,10 @@ class TestRayMarking:
     def test_with_ray(self, ray_context):
         """
         This test requires Ray and will be skipped if Ray is not installed.
-        
+
         Run with: pytest -m ray
         Skip with: pytest -m "not ray"
         """
-        import ray
 
         @ray.remote
         def add(a, b):
@@ -32,10 +32,9 @@ class TestRayMarking:
     def test_ray_and_slow(self, ray_context):
         """
         This test is both Ray-dependent and slow.
-        
+
         Skip with: pytest -m "not ray and not slow"
         """
-        import ray
 
         @ray.remote
         def multiply(a, b):

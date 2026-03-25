@@ -1,12 +1,18 @@
 """Generate base clusterings for consensus clustering."""
 
+import pickle
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
+from scipy.io import loadmat
 from scipy.sparse import csr_matrix
 
 from .kmeans import litekmeans
 from ..metrics import clustering_measure
+from ..ray_parallel.parallel_base_gen import generate_base_clusterings_parallel
+from ..ray_parallel.utils import init_ray_if_needed
+from ..utils.data_io import save_results
 
 
 def generate_base_clusterings(
@@ -57,8 +63,6 @@ def generate_base_clusterings(
     10
     """
     if use_ray:
-        from ..ray_parallel.utils import init_ray_if_needed
-        from ..ray_parallel.parallel_base_gen import generate_base_clusterings_parallel
 
         if init_ray_if_needed(use_ray=True):
             return generate_base_clusterings_parallel(
@@ -129,7 +133,6 @@ def save_base_clusterings(
         Output format ('pickle', 'mat', 'npz')
 
     """
-    from ..utils.data_io import save_results
 
     save_data = base_data.copy()
     save_data["G"] = [G.toarray() if hasattr(G, "toarray") else G for G in base_data["G"]]
@@ -154,8 +157,6 @@ def load_base_clusterings(filepath: str, format: str = "auto") -> Dict[str, any]
         Base clustering data
 
     """
-    import pickle
-    from pathlib import Path
 
     filepath = Path(filepath)
 
@@ -166,7 +167,6 @@ def load_base_clusterings(filepath: str, format: str = "auto") -> Dict[str, any]
         with open(filepath, "rb") as f:
             base_data = pickle.load(f)
     elif format == "mat":
-        from scipy.io import loadmat
 
         data = loadmat(filepath)
         base_data = {

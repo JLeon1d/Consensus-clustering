@@ -3,7 +3,11 @@
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import ray
 from scipy.sparse import csr_matrix
+
+from ..clustering.kmeans import litekmeans
+from ..metrics import clustering_measure
 
 
 def _run_single_kmeans(
@@ -40,8 +44,6 @@ def _run_single_kmeans(
     metrics : dict or None
         Evaluation metrics if y_true provided
     """
-    from ..clustering.kmeans import litekmeans
-    from ..metrics import clustering_measure
 
     labels, centers, _ = litekmeans(
         X, n_clusters=n_clusters, max_iter=100, n_init=n_init, random_state=seed
@@ -95,7 +97,6 @@ def generate_base_clusterings_parallel(
         - 'labels': List of cluster labels (m_base arrays)
         - 'metrics': Evaluation metrics if y_true provided (optional)
     """
-    import ray
 
     n_samples = X.shape[0]
 

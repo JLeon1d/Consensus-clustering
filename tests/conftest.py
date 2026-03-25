@@ -41,13 +41,13 @@ def tiny_data():
 def ray_context():
     """
     Initialize and shutdown Ray for tests.
-    
+
     This fixture is only used by tests marked with @pytest.mark.ray.
     Tests without Ray can run independently.
     """
     try:
         import ray
-        
+
         if not ray.is_initialized():
             ray.init(num_cpus=2, ignore_reinit_error=True, logging_level="ERROR")
         yield
@@ -59,7 +59,7 @@ def ray_context():
 def pytest_collection_modifyitems(config, items):
     """
     Automatically skip Ray tests if Ray is not installed.
-    
+
     This allows running tests without Ray by either:
     - Not having Ray installed (tests will be skipped)
     - Using: pytest -m "not ray"
@@ -69,7 +69,7 @@ def pytest_collection_modifyitems(config, items):
         ray_available = True
     except ImportError:
         ray_available = False
-    
+
     if not ray_available:
         skip_ray = pytest.mark.skip(reason="Ray is not installed")
         for item in items:

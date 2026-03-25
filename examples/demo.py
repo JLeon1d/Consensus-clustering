@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from sklearn.datasets import make_blobs
 
 from consensus_clustering import ACMK, clustering_measure, generate_base_clusterings
 from consensus_clustering.utils.data_io import load_data
@@ -34,7 +35,6 @@ def main():
     else:
         print("\n✗ Original MATLAB data not found")
         print("  Generating synthetic data instead...")
-        from sklearn.datasets import make_blobs
 
         X, y = make_blobs(
             n_samples=200, n_features=50, centers=10, cluster_std=1.5, random_state=42

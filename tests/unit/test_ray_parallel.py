@@ -3,11 +3,13 @@
 import numpy as np
 import pytest
 
+from consensus_clustering import ray_parallel
+from consensus_clustering.clustering.base_generation import generate_base_clusterings
 from consensus_clustering.ray_parallel.utils import (
-    is_ray_available,
-    init_ray_if_needed,
-    shutdown_ray_if_initialized,
     get_ray_status,
+    init_ray_if_needed,
+    is_ray_available,
+    shutdown_ray_if_initialized,
 )
 
 
@@ -38,15 +40,15 @@ class TestRayUtils:
     def test_init_and_shutdown_ray(self):
         """Test Ray initialization and shutdown."""
         shutdown_ray_if_initialized()
-        
+
         result = init_ray_if_needed(use_ray=True)
         assert result is True
-        
+
         status = get_ray_status()
         assert status['initialized'] is True
-        
+
         shutdown_ray_if_initialized()
-        
+
         status = get_ray_status()
         assert status['initialized'] is False
 
@@ -68,9 +70,6 @@ class TestParallelBaseClustering:
 
     def test_parallel_base_generation_basic(self):
         """Test basic parallel base clustering generation."""
-        from consensus_clustering.clustering.base_generation import (
-            generate_base_clusterings,
-        )
 
         result = generate_base_clusterings(
             self.X,
@@ -98,9 +97,6 @@ class TestParallelBaseClustering:
 
     def test_parallel_vs_sequential_consistency(self):
         """Test that parallel and sequential give similar results."""
-        from consensus_clustering.clustering.base_generation import (
-            generate_base_clusterings,
-        )
 
         result_seq = generate_base_clusterings(
             self.X,
@@ -127,9 +123,6 @@ class TestParallelBaseClustering:
 
     def test_parallel_with_true_labels(self):
         """Test parallel generation with true labels for metrics."""
-        from consensus_clustering.clustering.base_generation import (
-            generate_base_clusterings,
-        )
 
         y_true = np.random.randint(0, self.n_clusters, size=100)
 
@@ -153,9 +146,6 @@ class TestParallelBaseClustering:
 
     def test_parallel_fallback_when_ray_unavailable(self):
         """Test graceful fallback when Ray is not available."""
-        from consensus_clustering.clustering.base_generation import (
-            generate_base_clusterings,
-        )
 
         shutdown_ray_if_initialized()
 
@@ -178,8 +168,7 @@ class TestRayIntegration:
 
     def test_import_ray_parallel_module(self):
         """Test that ray_parallel module can be imported."""
-        from consensus_clustering import ray_parallel
-        
+
         assert hasattr(ray_parallel, 'is_ray_available')
         assert hasattr(ray_parallel, 'init_ray_if_needed')
         assert hasattr(ray_parallel, 'shutdown_ray_if_initialized')
@@ -189,7 +178,7 @@ class TestRayIntegration:
     def test_ray_status_without_initialization(self):
         """Test Ray status when not initialized."""
         shutdown_ray_if_initialized()
-        
+
         status = get_ray_status()
         assert status['initialized'] is False
         assert status['num_cpus'] is None

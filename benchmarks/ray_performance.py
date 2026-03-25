@@ -10,7 +10,7 @@ from consensus_clustering.ray_parallel import is_ray_available, shutdown_ray_if_
 def benchmark_base_clustering(n_nodes, n_clusters, m_base, n_runs=3):
     """
     Benchmark base clustering generation with different graph sizes.
-    
+
     Parameters
     ----------
     n_nodes : int
@@ -24,7 +24,7 @@ def benchmark_base_clustering(n_nodes, n_clusters, m_base, n_runs=3):
     """
     print(f"\nBenchmark: n_nodes={n_nodes}, n_clusters={n_clusters}, m_base={m_base}")
     print("-" * 70)
-    
+
     adjacency, true_labels = generate_clustered_graph(
         n_nodes=n_nodes,
         n_clusters=n_clusters,
@@ -32,10 +32,10 @@ def benchmark_base_clustering(n_nodes, n_clusters, m_base, n_runs=3):
         noise_density=0.05,
         random_state=42
     )
-    
+
     X = adjacency_to_features(adjacency, method='adjacency')
     print(f"Graph generated: {X.shape[0]} nodes, {X.shape[1]} features")
-    
+
     seq_times = []
     for run in range(n_runs):
         start = time.time()
@@ -48,7 +48,7 @@ def benchmark_base_clustering(n_nodes, n_clusters, m_base, n_runs=3):
         )
         seq_time = time.time() - start
         seq_times.append(seq_time)
-    
+
     avg_seq_time = np.mean(seq_times)
     std_seq_time = np.std(seq_times)
     print(f"Sequential: {avg_seq_time:.2f}s ± {std_seq_time:.2f}s")
@@ -65,19 +65,19 @@ def benchmark_base_clustering(n_nodes, n_clusters, m_base, n_runs=3):
         )
         ray_time = time.time() - start
         ray_times.append(ray_time)
-        
+
     avg_ray_time = np.mean(ray_times)
     std_ray_time = np.std(ray_times)
     print(f"Ray parallel: {avg_ray_time:.2f}s ± {std_ray_time:.2f}s")
-        
+
     speedup = avg_seq_time / avg_ray_time
     print(f"Speedup: {speedup:.2f}x")
-        
+
     w_diff = np.abs(result_seq['W'] - result_ray['W']).max()
     print(f"Max W difference: {w_diff:.2e}")
 
     shutdown_ray_if_initialized()
-    
+
     return avg_seq_time, avg_ray_time
 
 
@@ -95,7 +95,7 @@ def main():
         {"n_nodes": 4000, "n_clusters": 25, "m_base": 10},
         {"n_nodes": 10000, "n_clusters": 30, "m_base": 10},
     ]
-    
+
     results = []
     for config in configs:
         seq_time, ray_time = benchmark_base_clustering(**config, n_runs=3)
@@ -105,20 +105,20 @@ def main():
             "ray_time": ray_time,
             "speedup": seq_time / ray_time if ray_time else None
         })
-    
+
     print("\n" + "=" * 70)
     print("Summary")
     print("=" * 70)
     print(f"{'Nodes':<10} {'Clusters':<10} {'Base':<10} {'Sequential':<15} {'Ray':<15} {'Speedup':<10}")
     print("-" * 70)
-    
+
     for r in results:
         c = r["config"]
         seq_str = f"{r['seq_time']:.2f}s"
         ray_str = f"{r['ray_time']:.2f}s" if r['ray_time'] else "N/A"
         speedup_str = f"{r['speedup']:.2f}x" if r['speedup'] else "N/A"
         print(f"{c['n_nodes']:<10} {c['n_clusters']:<10} {c['m_base']:<10} {seq_str:<15} {ray_str:<15} {speedup_str:<10}")
-    
+
     print("=" * 70)
 
 
