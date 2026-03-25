@@ -7,6 +7,7 @@ The datasets are accessed via git and loaded using scipy.io.loadmat.
 import os
 import subprocess
 import tempfile
+import traceback
 from typing import Dict, Optional, Tuple
 
 import numpy as np
@@ -91,6 +92,7 @@ def benchmark_on_matlab_dataset(
     n_runs: int = 5,
     max_iter: int = 100,
 ) -> Dict:
+    import traceback
     """Benchmark SDGCA on a MATLAB dataset.
 
     Parameters
@@ -130,7 +132,7 @@ def benchmark_on_matlab_dataset(
     for run in range(n_runs):
         np.random.seed(19 + run)
         selected_indices = np.random.choice(pool_size, size=min(n_base, pool_size), replace=False)
-        base_clusterings = members[:, selected_indices]
+        base_clusterings = np.asarray(members)[:, selected_indices]
 
         sdgca = SDGCA(
             n_clusters=n_clusters,
@@ -182,6 +184,8 @@ def benchmark_on_matlab_dataset(
 
 def run_matlab_benchmarks(datasets=None, n_base=20, n_runs=5):
     """Run benchmarks on multiple MATLAB datasets.
+    
+    import traceback
 
     Parameters
     ----------
@@ -215,6 +219,7 @@ def run_matlab_benchmarks(datasets=None, n_base=20, n_runs=5):
             all_results[dataset_name] = results
         except Exception as e:
             print(f"\nError benchmarking {dataset_name}: {e}")
+            traceback.print_exc()
             all_results[dataset_name] = {"error": str(e)}
 
     print("\n" + "=" * 70)

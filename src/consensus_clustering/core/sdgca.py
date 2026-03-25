@@ -211,7 +211,7 @@ class SDGCA:
         base_cls_segs = np.zeros((n_total_cls, n_samples))
         for i in range(n_samples):
             for j in range(m_base):
-                cluster_id = bcs[i, j] - 1  # Convert to 0-indexed
+                cluster_id = int(bcs[i, j]) - 1  # Convert to 0-indexed and ensure Python int
                 base_cls_segs[cluster_id, i] = 1
 
         return bcs, base_cls_segs
@@ -321,16 +321,16 @@ class SDGCA:
             Normalization factors
         """
         clust = bcs.max(axis=0)
-        norm_k = np.zeros(clust[-1], dtype=int)
+        norm_k = np.zeros(int(clust[-1]), dtype=int)
 
         # First base clustering
-        norm_k[: clust[0]] = clust[0]
+        norm_k[: int(clust[0])] = int(clust[0])
 
         # Remaining base clusterings
         for i in range(len(clust) - 1):
-            start = clust[i]
-            end = clust[i + 1]
-            norm_k[start:end] = clust[i + 1] - clust[i]
+            start = int(clust[i])
+            end = int(clust[i + 1])
+            norm_k[start:end] = int(clust[i + 1]) - int(clust[i])
 
         return norm_k
 
@@ -435,10 +435,10 @@ class SDGCA:
         # Aggregate dissimilarity across base clusterings
         D = np.zeros((n_samples, n_samples))
         for m in range(m_base):
-            cluster_ids = bcs[:, m] - 1  # Convert to 0-indexed
+            cluster_ids = (bcs[:, m] - 1).astype(int)  # Convert to 0-indexed Python ints
             for i in range(n_samples):
                 for j in range(n_samples):
-                    D[i, j] += dis_of_cluster[cluster_ids[i], cluster_ids[j]]
+                    D[i, j] += dis_of_cluster[int(cluster_ids[i]), int(cluster_ids[j])]
 
         D = D / m_base
         D[D < self.tau] = 0
