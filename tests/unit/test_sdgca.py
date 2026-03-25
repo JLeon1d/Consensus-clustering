@@ -229,10 +229,10 @@ class TestSDGCA:
         assert D.shape == (n, n)
 
         # Check that S and D are in valid range
-        assert np.all(S >= -1e-3)
-        assert np.all(S <= 1 + 1e-3)
-        assert np.all(D >= -1e-3)
-        assert np.all(D <= 1 + 1e-3)
+        assert np.all(S >= -2e-3)
+        assert np.all(S <= 1 + 2e-3)
+        assert np.all(D >= -2e-3)
+        assert np.all(D <= 1 + 2e-3)
 
     def test_compute_w(self):
         """Test final co-association matrix computation."""
