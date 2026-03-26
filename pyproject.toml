@@ -67,8 +67,18 @@ all = [
 Homepage = "https://github.com/golovandrey/consensus-clustering"
 Repository = "https://github.com/golovandrey/consensus-clustering"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+package-dir = {"consensus_clustering" = "src"}
+packages = [
+    "consensus_clustering",
+    "consensus_clustering.core",
+    "consensus_clustering.clustering",
+    "consensus_clustering.metrics",
+    "consensus_clustering.optimization",
+    "consensus_clustering.ray_parallel",
+    "consensus_clustering.utils",
+    "consensus_clustering.generators",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
