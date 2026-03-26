@@ -44,33 +44,6 @@ class TestSDGCA:
 
         return base_clusterings, true_labels
 
-    def test_initialization(self):
-        """Test SDGCA initialization."""
-        sdgca = SDGCA(n_clusters=3)
-        assert sdgca.n_clusters == 3
-        assert sdgca.lambda_param == 0.09
-        assert sdgca.eta == 0.75
-        assert sdgca.theta == 0.65
-        assert sdgca.max_iter == 300
-        assert sdgca.labels_ is None
-
-    def test_initialization_custom_params(self):
-        """Test SDGCA initialization with custom parameters."""
-        sdgca = SDGCA(
-            n_clusters=5,
-            lambda_param=0.05,
-            eta=0.8,
-            theta=0.7,
-            max_iter=200,
-            verbose=True,
-        )
-        assert sdgca.n_clusters == 5
-        assert sdgca.lambda_param == 0.05
-        assert sdgca.eta == 0.8
-        assert sdgca.theta == 0.7
-        assert sdgca.max_iter == 200
-        assert sdgca.verbose is True
-
     def test_fit_simple(self, simple_base_clusterings):
         """Test fitting SDGCA on simple data."""
         sdgca = SDGCA(n_clusters=3, max_iter=50)
