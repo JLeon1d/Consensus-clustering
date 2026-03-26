@@ -1,6 +1,8 @@
-# Consensus Clustering - ACMK Algorithm
+# Consensus Clustering - ACMK and SDGCA Algorithms
 
-Python3 implementation of the ACMK (Adaptive Consensus Multiple Kernel) clustering algorithm with Ray framework support for parallel processing.
+Python3 implementation of consensus clustering algorithms with Ray framework support for parallel processing:
+- **ACMK** (Adaptive Consensus Multiple Kernel)
+- **SDGCA** (Similarity and Dissimilarity Guided Co-association)
 
 ## Installation
 
@@ -65,7 +67,7 @@ If you have Python 3.13+, use the `setup_with_ray.sh` script which will create a
 
 ## Quick Start
 
-### Basic Usage
+### ACMK Usage
 
 ```python
 from consensus_clustering import ACMK
@@ -84,6 +86,30 @@ acmk.fit(X, **base_data)
 
 # Get results
 labels = acmk.predict(method='spectral')
+print(f"Clustering complete! Labels shape: {labels.shape}")
+```
+
+### SDGCA Usage
+
+```python
+from consensus_clustering import SDGCA
+from sklearn.cluster import KMeans
+import numpy as np
+
+# Generate synthetic data
+from sklearn.datasets import make_blobs
+X, y_true = make_blobs(n_samples=100, n_features=10, centers=3, random_state=42)
+
+# Generate base clusterings using k-means
+n_base = 15
+base_clusterings = np.zeros((len(X), n_base), dtype=int)
+for i in range(n_base):
+    kmeans = KMeans(n_clusters=3, random_state=i, n_init=10)
+    base_clusterings[:, i] = kmeans.fit_predict(X) + 1
+
+# Run SDGCA
+sdgca = SDGCA(n_clusters=3, lambda_param=0.1, eta=0.7, theta=0.6)
+labels = sdgca.fit_predict(base_clusterings)
 print(f"Clustering complete! Labels shape: {labels.shape}")
 ```
 
@@ -106,9 +132,13 @@ Ray will automatically parallelize the generation of base clusterings across ava
 ### Run Examples
 
 ```bash
+# ACMK examples
 python3 examples/simple_example.py
 python3 examples/demo.py
 python3 examples/ray_parallel_example.py  # Ray parallel processing demo
+
+# SDGCA example
+python3 examples/sdgca_example.py
 ```
 
 ### Run Tests
@@ -163,17 +193,29 @@ base_data = generate_base_clusterings(X, n_clusters=5, use_ray=True)
 ```
 Consensus-clustering/
 ├── src/consensus_clustering/    # Main package
-│   ├── core/                    # ACMK algorithm
+│   ├── core/                    # ACMK and SDGCA algorithms
 │   ├── clustering/              # K-means and base generation
 │   ├── optimization/            # L-BFGS-B and objectives
 │   ├── metrics/                 # Clustering evaluation
 │   ├── ray_parallel/            # Ray parallelization utilities
 │   └── utils/                   # Data I/O and linear algebra
 ├── tests/                       # Test suite
+│   ├── unit/                    # Unit tests for ACMK and SDGCA
+│   └── integration/             # Integration tests
+├── benchmarks/                  # Performance benchmarks
 ├── examples/                    # Usage examples
-├── original_code/               # Original MATLAB implementation
 └── pyproject.toml              # Package configuration
 ```
+
+## Algorithms
+
+### ACMK (Adaptive Consensus Multiple Kernel)
+Performs consensus clustering by combining multiple base clusterings through an ADMM optimization framework with adaptive kernel weighting.
+
+### SDGCA (Similarity and Dissimilarity Guided Co-association)
+Constructs a refined co-association matrix using similarity and dissimilarity guidance through ADMM optimization. Based on the paper "Similarity and Dissimilarity Guided Co-association Matrix Construction for Ensemble Clustering".
+
+**SDGCA Repository**: The original MATLAB implementation is available at https://github.com/xuz2019/SDGCA and has been added as a git remote (`sdgca`) to this repository for reference and testing.
 
 ## License
 
