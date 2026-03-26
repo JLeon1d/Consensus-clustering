@@ -70,9 +70,11 @@ class BenchmarkFramework:
             print(f"{'='*70}")
             
             try:
+                print(f"  Starting run {run + 1}/{n_runs}...")
                 start_time = time.time()
                 metrics = benchmark_func(config, use_ray)
                 execution_time = time.time() - start_time
+                print(f"  ✓ Run {run + 1}/{n_runs} completed in {execution_time:.2f}s")
                 
                 result = BenchmarkResult(
                     algorithm=algorithm_name,
