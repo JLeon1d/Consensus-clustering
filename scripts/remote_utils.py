@@ -14,7 +14,6 @@ class RemoteServer:
 
     def __init__(self):
         """Initialize remote server connection from .env file."""
-        # Load environment variables
         env_path = Path(__file__).parent.parent / ".env"
         load_dotenv(env_path)
 
@@ -42,7 +41,9 @@ class RemoteServer:
                 port=self.port,
                 username=self.user,
                 password=self.password,
-                timeout=10
+                timeout=10,
+                allow_agent=False,
+                look_for_keys=False
             )
             self.sftp = self.client.open_sftp()
             print("✓ Connected successfully!")
@@ -82,49 +83,83 @@ class RemoteServer:
         if not self.sftp:
             raise RuntimeError("SFTP not initialized")
         
-        print(f"Uploading {local_path} -> {remote_path}")
+        # Expand ~ in remote path
+        if remote_path.startswith('~/'):
+            stdout, stderr, code = self.execute_command('echo $HOME', verbose=False)
+            home_dir = stdout.strip()
+            remote_path = remote_path.replace('~', home_dir, 1)
+        
         self.sftp.put(local_path, remote_path)
-        print("✓ Upload complete")
 
     def download_file(self, remote_path: str, local_path: str):
         """Download file from remote server."""
         if not self.sftp:
             raise RuntimeError("SFTP not initialized")
         
-        print(f"Downloading {remote_path} -> {local_path}")
-        self.sftp.get(remote_path, local_path)
-        print("✓ Download complete")
+        # Expand ~ in remote path
+        if remote_path.startswith('~/'):
+            stdout, stderr, code = self.execute_command('echo $HOME', verbose=False)
+            home_dir = stdout.strip()
+            remote_path = remote_path.replace('~', home_dir, 1)
 
-    def upload_directory(self, local_dir: str, remote_dir: str):
-        """Upload directory to remote server."""
+        self.sftp.get(remote_path, local_path)
+
+    def upload_directory(self, local_dir: str, remote_dir: str, skip_dirs: set = None):
+        """Upload directory to remote server, skipping specified directories."""
         if not self.sftp:
             raise RuntimeError("SFTP not initialized")
+
+        if skip_dirs is None:
+            skip_dirs = {'__pycache__', '.pytest_cache', '.git'}
+
+        # Expand ~ in remote path
+        if remote_dir.startswith('~/'):
+            stdout, stderr, code = self.execute_command('echo $HOME', verbose=False)
+            home_dir = stdout.strip()
+            remote_dir = remote_dir.replace('~', home_dir, 1)
         
         local_path = Path(local_dir)
-        
-        # Create remote directory
-        try:
-            self.sftp.mkdir(remote_dir)
-        except IOError:
-            pass  # Directory might already exist
-        
+
+        # Create remote directory recursively
+        self._mkdir_p(remote_dir)
+
         for item in local_path.rglob('*'):
+            # Skip if any parent directory is in skip_dirs
+            if any(part in skip_dirs for part in item.parts):
+                continue
+
             if item.is_file():
                 relative_path = item.relative_to(local_path)
                 remote_file = f"{remote_dir}/{relative_path}".replace('\\', '/')
-                
-                # Create parent directories
+
+                # Create parent directories recursively
                 remote_parent = '/'.join(remote_file.split('/')[:-1])
-                try:
-                    self.sftp.mkdir(remote_parent)
-                except IOError:
-                    pass
+                self._mkdir_p(remote_parent)
                 
-                print(f"Uploading {item} -> {remote_file}")
+                print(f"Uploading {item.name}")
                 self.sftp.put(str(item), remote_file)
 
+    def _mkdir_p(self, remote_path: str):
+        """Create directory recursively on remote server."""
+        if not self.sftp:
+            return
+        
+        dirs = []
+        path = remote_path
+        while path and path != '/':
+            dirs.append(path)
+            path = '/'.join(path.split('/')[:-1])
+        
+        for dir_path in reversed(dirs):
+            try:
+                self.sftp.stat(dir_path)
+            except IOError:
+                try:
+                    self.sftp.mkdir(dir_path)
+                except IOError:
+                    pass
+
     def close(self):
-        """Close SSH connection."""
         if self.sftp:
             self.sftp.close()
         if self.client:
@@ -132,24 +167,8 @@ class RemoteServer:
         print("Connection closed")
 
     def __enter__(self):
-        """Context manager entry."""
         self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
         self.close()
-
-
-def test_connection():
-    """Test connection to remote server."""
-    with RemoteServer() as server:
-        stdout, stderr, code = server.execute_command("uname -a")
-        print(f"Exit code: {code}")
-        
-        stdout, stderr, code = server.execute_command("python3 --version")
-        print(f"Exit code: {code}")
-
-
-if __name__ == "__main__":
-    test_connection()

@@ -5,7 +5,7 @@ import pytest
 from sklearn.datasets import make_blobs
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 
-from consensus_clustering import SDGCA
+from src.sdgca import SDGCA
 
 
 class TestSDGCAIntegration:

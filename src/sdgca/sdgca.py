@@ -10,6 +10,9 @@ import numpy as np
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 from scipy.sparse import issparse
+from ..utils.ray_utils import init_ray_if_needed
+from . import ray_parallel
+
 
 
 class SDGCA:
@@ -82,6 +85,7 @@ class SDGCA:
         rho2: float = 1.1,
         tol: float = 1e-3,
         verbose: bool = False,
+        use_ray: bool = False,
     ):
         self.n_clusters = n_clusters
         self.lambda_param = lambda_param
@@ -97,8 +101,11 @@ class SDGCA:
         self.rho2 = rho2
         self.tol = tol
         self.verbose = verbose
+        self.use_ray = use_ray
+        
+        if self.use_ray:
+            init_ray_if_needed(use_ray=True)
 
-        # Attributes set during fit
         self.labels_: Optional[np.ndarray] = None
         self.W_: Optional[np.ndarray] = None
         self.S_: Optional[np.ndarray] = None
@@ -121,27 +128,21 @@ class SDGCA:
         self : SDGCA
             Fitted estimator
         """
-        # Convert sparse to dense if needed
         if issparse(base_clusterings):
             base_clusterings = base_clusterings.toarray()
 
         n_samples, m_base = base_clusterings.shape
 
-        # Get all segments (cluster indicators)
         bcs, base_cls_segs = self._get_all_segs(base_clusterings)
 
-        # Compute basic co-association matrix
         self.CA_ = (base_cls_segs.T @ base_cls_segs) / m_base
 
-        # Compute NECI (Normalized Entropy of Cluster Indicator)
         neci = self._compute_neci(bcs, base_cls_segs, self.lambda_param)
 
-        # Compute NWCA (Normalized Weighted Co-Association)
         self.NWCA_ = self._compute_nwca(base_cls_segs, neci, m_base)
 
-        # Check if we should use simple NWCA or full SDGCA
+        # eta > 1 means skip SDGCA optimization and use NWCA directly
         if self.eta > 1:
-            # Use NWCA directly
             self.W_ = self.NWCA_
             self.S_ = None
             self.D_ = None
@@ -164,13 +165,10 @@ class SDGCA:
             # Apply constraint: ML and CL should not overlap
             ML[CL > 0] = 0
 
-            # Optimize S and D using ADMM
             self.S_, self.D_ = self._optimize_sdgca(L, ML, CL)
 
-            # Compute final refined co-association matrix
             self.W_ = self._compute_w(self.S_, self.D_, self.NWCA_)
 
-        # Get final clustering result
         self.labels_ = self._get_clustering_result(self.W_, self.n_clusters)
 
         return self
@@ -196,7 +194,6 @@ class SDGCA:
         n_samples, m_base = base_clusterings.shape
         bcs = base_clusterings.copy()
 
-        # Get number of clusters in each base clustering
         n_cls_orig = bcs.max(axis=0)
 
         # Renumber clusters to be unique across all base clusterings
@@ -204,10 +201,8 @@ class SDGCA:
         offsets = np.concatenate([[0], cumsum_cls[:-1]])
         bcs = bcs + offsets[np.newaxis, :]
 
-        # Total number of clusters across all base clusterings
         n_total_cls = cumsum_cls[-1]
 
-        # Create binary indicator matrix
         base_cls_segs = np.zeros((n_total_cls, n_samples))
         for i in range(n_samples):
             for j in range(m_base):
@@ -264,7 +259,6 @@ class SDGCA:
         norm_k = self._compute_norm_k(bcs)
 
         for i in range(n_total_cls):
-            # Get samples in this cluster
             mask = base_cls_segs[i, :] != 0
             if not mask.any():
                 continue
@@ -354,18 +348,14 @@ class SDGCA:
         nwca : np.ndarray
             Normalized weighted co-association matrix
         """
-        # Weight each cluster by its NECI
         weighted_segs = base_cls_segs * neci[:, np.newaxis]
 
-        # Compute weighted co-association
         nwca = (weighted_segs.T @ base_cls_segs) / m_base
 
-        # Normalize
         max_val = nwca.max()
         if max_val > 0:
             nwca = nwca / max_val
 
-        # Set diagonal to 1
         np.fill_diagonal(nwca, 1.0)
 
         return nwca
@@ -389,14 +379,13 @@ class SDGCA:
         ml = nwca.copy()
         ml[mla == 0] = 0
 
-        # Normalize
         min_val = ml.min()
         ml = ml - min_val
         max_val = ml.max()
         if max_val > 0:
             ml = ml / max_val
 
-        # Scale and shift
+        # Scale to [0.8, 1.0] range so must-link pairs have high affinity
         ml = ml / 5.0 + 0.8
         ml[ml == 0.8] = 0
 
@@ -420,27 +409,28 @@ class SDGCA:
         """
         n_samples, m_base = bcs.shape
 
-        # Compute Jaccard similarity between clusters
-        sim_of_cluster = self._jaccard_similarity(base_cls_segs)
+        if self.use_ray:
+            sim_of_cluster = ray_parallel.compute_jaccard_parallel(base_cls_segs, block_size=100)
+        else:
+            sim_of_cluster = self._jaccard_similarity(base_cls_segs)
 
-        # Compute random walk on cluster similarity
         rw_of_cluster = self._random_walk_of_cluster(sim_of_cluster)
 
-        # Set diagonal to 1
         np.fill_diagonal(rw_of_cluster, 1.0)
 
-        # Compute dissimilarity
         dis_of_cluster = 1 - rw_of_cluster
 
-        # Aggregate dissimilarity across base clusterings
-        D = np.zeros((n_samples, n_samples))
-        for m in range(m_base):
-            cluster_ids = (bcs[:, m] - 1).astype(int)  # Convert to 0-indexed Python ints
-            for i in range(n_samples):
-                for j in range(n_samples):
-                    D[i, j] += dis_of_cluster[int(cluster_ids[i]), int(cluster_ids[j])]
+        if self.use_ray:
+            D = ray_parallel.compute_d_parallel(bcs, dis_of_cluster, block_size=50)
+        else:
+            D = np.zeros((n_samples, n_samples))
+            for m in range(m_base):
+                cluster_ids = (bcs[:, m] - 1).astype(int)  # Convert to 0-indexed Python ints
+                for i in range(n_samples):
+                    for j in range(n_samples):
+                        D[i, j] += dis_of_cluster[int(cluster_ids[i]), int(cluster_ids[j])]
+            D = D / m_base
 
-        D = D / m_base
         D[D < self.tau] = 0
 
         return D
@@ -464,10 +454,8 @@ class SDGCA:
         if b is None:
             b = a
 
-        # Compute intersection (dot product for binary matrices)
         intersection = a @ b.T
 
-        # Compute union
         a_squared = (a ** 2).sum(axis=1, keepdims=True)
         b_squared = (b ** 2).sum(axis=1, keepdims=True)
         union = a_squared + b_squared.T - intersection
@@ -494,10 +482,8 @@ class SDGCA:
         """
         n = W.shape[0]
 
-        # Remove diagonal
         W = W - np.diag(np.diag(W))
 
-        # Compute transition matrix
         row_sums = W.sum(axis=1)
         D_inv = np.zeros_like(W)
         non_zero = row_sums > 0
@@ -505,7 +491,6 @@ class SDGCA:
 
         W_tilde = D_inv @ W
 
-        # Compute random walk
         tmp_O = W_tilde.copy()
         O_tilde = W_tilde @ W_tilde.T
 
@@ -513,13 +498,12 @@ class SDGCA:
             tmp_O = tmp_O @ W_tilde
             O_tilde = O_tilde + self.beta_rw * (tmp_O @ tmp_O.T)
 
-        # Normalize
         O_i = np.diag(O_tilde)[:, np.newaxis]
         denominator = np.sqrt(O_i @ O_i.T)
         denominator = np.maximum(denominator, 1e-10)
         R = O_tilde / denominator
 
-        # Handle isolated nodes
+        # Handle isolated nodes (zero out rows/cols with no connections)
         isolated_idx = row_sums < 1e-9
         if isolated_idx.any():
             R[isolated_idx, :] = 0
@@ -552,7 +536,6 @@ class SDGCA:
         n = L.shape[0]
         I = np.eye(n)
 
-        # Initialize variables
         S = np.zeros((n, n))
         D = np.zeros((n, n))
         Y1 = np.zeros((n, n))
@@ -563,7 +546,7 @@ class SDGCA:
         mu1 = self.mu1_init
         mu2 = self.mu2_init
 
-        # Precompute inverse matrices
+        # Precompute inverse matrices (reused each iteration, updated when mu changes)
         inv1 = np.linalg.inv(2 * L + 2 * mu1 * I)
         inv2 = np.linalg.inv(2 * L + 2 * mu2 * I)
 
@@ -571,20 +554,16 @@ class SDGCA:
             S_old = S.copy()
             D_old = D.copy()
 
-            # Update S
             S = inv1 @ (2 * mu1 * F1 - D.T - Y1)
 
-            # Update F1
             F1 = Y1 / (2 * mu1) + S
             F1[ML > 0] = 0
             F1 = np.clip(F1, 0, 1)
             F1 = F1 + ML
             F1 = (F1 + F1.T) / 2
 
-            # Update D
             D = inv2 @ (2 * mu2 * F2 - S.T - Y2)
 
-            # Update F2
             F2 = Y2 / (2 * mu2) + D
             F2[CL > 0] = 0
             F2 = np.clip(F2, 0, 1)
@@ -595,15 +574,13 @@ class SDGCA:
             Y1 = Y1 + mu1 * (S - F1)
             Y2 = Y2 + mu2 * (D - F2)
 
-            # Update penalty parameters
             mu1 = min(mu1 * self.rho1, 1e6)
             mu2 = min(mu2 * self.rho2, 1e6)
 
-            # Recompute inverse matrices with new mu
+            # Recompute inverse matrices since mu changed
             inv1 = np.linalg.inv(2 * L + 2 * mu1 * I)
             inv2 = np.linalg.inv(2 * L + 2 * mu2 * I)
 
-            # Check convergence
             errors = [
                 np.linalg.norm(S - S_old, "fro"),
                 np.linalg.norm(D - D_old, "fro"),
@@ -641,17 +618,15 @@ class SDGCA:
         W_star : np.ndarray
             Refined co-association matrix
         """
-        # Clip and symmetrize
         S = np.clip(S, 0, 1)
         S = (S + S.T) / 2
         D = np.clip(D, 0, 1)
         D = (D + D.T) / 2
 
-        # Compute two components
         W1 = 1 - (1 - S + D) * (1 - W)
         W2 = (1 + S - D) * W
 
-        # Apply flag-based selection
+        # Select W1 where S < D (dissimilarity dominates), W2 otherwise
         flag = S - D
         W1[flag < 0] = 0
         W2[flag >= 0] = 0
@@ -677,18 +652,13 @@ class SDGCA:
         labels : np.ndarray
             Cluster labels
         """
-        # Clip values
         CA = np.clip(CA, 0, 1)
-
-        # Make symmetric
         CA = np.maximum(CA, CA.T)
 
-        # Convert to distance
         np.fill_diagonal(CA, 0)
         s = squareform(CA)
         d = 1 - s
 
-        # Hierarchical clustering
         Z = linkage(d, method="average")
         labels = fcluster(Z, n_clusters, criterion="maxclust")
 

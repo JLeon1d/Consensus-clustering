@@ -1,27 +1,40 @@
 # Benchmarks
 
-Performance benchmarks for ACMK and SDGCA algorithms comparing Ray vs Sequential execution.
-
-## Running Benchmarks
+## Quick start
 
 ```bash
-# All benchmarks
-python3 run_all_benchmarks.py
+# Run ACMK (sequential + Ray) on n=1000, k=10
+python scripts/run_benchmark.py acmk --sizes 1000 --k 10 --m 10 --output benchmarks/acmk_n1000.json
 
-# Individual algorithms
-python3 run_acmk_benchmark.py
-python3 run_sdgca_benchmark.py
+# Run SDGCA on multiple sizes with sqrt(n) clusters
+python scripts/run_benchmark.py sdgca --sizes 500 1000 2000 --k-mode sqrt --output benchmarks/sdgca_run.json
 ```
 
-## Results
+Results are saved incrementally — if the job is interrupted, re-running with the same `--output` file resumes from where it left off.
 
-Results are saved in `results/` directory:
-- `*_benchmark_results.md` - Human-readable reports
-- `*_benchmark_results.json` - Machine-readable data
+## Arguments
 
-## Configurations
+| Argument | Description | Default |
+|---|---|---|
+| `algorithm` | `acmk` or `sdgca` | required |
+| `--sizes` | One or more dataset sizes | required |
+| `--output` | Output JSON file path | required |
+| `--k` | Number of clusters | `5` |
+| `--k-mode` | `fixed`, `sqrt` (√n), or `n_div_10` (n/10) | `fixed` |
+| `--m` | Number of base clusterings | `10` |
+| `--runs` | Runs per size (each run does sequential + Ray) | `1` |
+| `--max-iter` | Max iterations | `15` (ACMK) / `200` (SDGCA) |
+| `--clusterability` | Data clusterability 0.0–1.0 | `0.9` |
+| `--quiet` | Suppress verbose output | off |
 
-**ACMK**: 3 configs (300-800 nodes), ~10 min without Ray
-**SDGCA**: 4 configs (200-500 samples), ~10 min without Ray
+## Output format
 
-Each config runs 2 times in both sequential and Ray modes.
+Each completed sub-run is appended to the JSON file immediately. The file contains:
+- `config` — the parameters used
+- `results` — list of completed runs with timing
+- `completed` — list of completed run keys (used for resume)
+- `failures` — any errors encountered
+
+## Remote benchmarks
+
+See [`documentation/remote_benchmarks.md`](../documentation/remote_benchmarks.md) for running benchmarks on the remote server via `scripts/run_remote.py`.

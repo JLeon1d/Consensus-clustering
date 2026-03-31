@@ -1,8 +1,11 @@
 """Objective functions for ACMK optimization."""
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import numpy as np
+import ray
+
+from . import ray_parallel
 
 
 def obj_f1_d2(
@@ -19,9 +22,6 @@ def obj_f1_d2(
 ) -> Tuple[float, np.ndarray]:
     """
     Objective function for optimizing matrix A.
-
-    This function computes the objective value and gradient for the
-    A matrix optimization subproblem in the ACMK algorithm.
 
     Parameters
     ----------
@@ -69,7 +69,7 @@ def obj_f1_d2(
 
     GFA = [GF_all]
     for r in range(1, k):
-        GFA.append(GFA[-1] @ A)
+        GFA.append(A @ GFA[-1])
 
     obj1 = 0.0
     for i in range(m):
@@ -87,9 +87,9 @@ def obj_f1_d2(
         grad1 += AX[k - r - 1] @ XAA[r]
     grad1 = 2 * grad1.T * m
 
-    grad2 = AX[0] @ GFA[k - 1]
+    grad2 = AX[0] @ GFA[k - 1].T
     for r in range(k - 1):
-        grad2 += AX[r + 1] @ GFA[k - r - 1]
+        grad2 += AX[r + 1] @ GFA[k - r - 1].T
     grad2 = grad2.T
 
     grad12 = grad1 - 2 * grad2
@@ -115,9 +115,6 @@ def obj_f2(
 ) -> Tuple[float, np.ndarray]:
     """
     Objective function for optimizing matrix W.
-
-    This function computes the objective value and gradient for the
-    W matrix optimization subproblem in the ACMK algorithm.
 
     Parameters
     ----------
@@ -153,9 +150,12 @@ def obj_f2(
     """
     W = x.reshape(n, n)
 
-    GG = np.zeros((n, n))
-    for v in range(m):
-        GG += alpha[v] * (G[v] @ G[v].T)
+    if ray.is_initialized():
+        GG = ray_parallel.compute_GG_parallel(G, alpha)
+    else:
+        GG = np.zeros((n, n))
+        for v in range(m):
+            GG += alpha[v] * (G[v] @ G[v].T)
 
     obj1 = lambda_ * np.sum((W - GG) ** 2)
 

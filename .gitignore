@@ -27,10 +27,13 @@ MANIFEST
 
 # Virtual environments
 venv/
+.venv/
+.venv311/
 env/
 ENV/
 env.bak/
 venv.bak/
+*.venv
 
 # IDE
 .vscode/
@@ -65,12 +68,6 @@ logs/
 # Ray
 /tmp/ray/
 
-# AI Assistant files (Cline, Aider, etc.)
-*.plan.md
-ARCHITECTURE_PLAN.md
-IMPLEMENTATION_GUIDE.md
-PROJECT_SUMMARY.md
-
 # OS
 .DS_Store
 Thumbs.db
@@ -81,5 +78,11 @@ Thumbs.db
 *.swp
 
 
-docs/
 .env
+
+documentation/
+plots/
+*.md
+!README.md
+*.json
+Generator.pdf

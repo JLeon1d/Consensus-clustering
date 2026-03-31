@@ -55,7 +55,7 @@ python -c "from consensus_clustering import ACMK; print('✓ Works!')"
 ### Check Ray Status
 
 ```bash
-python -c "from consensus_clustering.ray_parallel import is_ray_available; print('Ray available:', is_ray_available())"
+python -c "from src.utils.ray_utils import is_ray_available; print('Ray available:', is_ray_available())"
 ```
 
 ### Python Version Requirements
@@ -129,28 +129,6 @@ base_data = generate_base_clusterings(
 
 Ray will automatically parallelize the generation of base clusterings across available CPU cores. If Ray is not installed, the function gracefully falls back to sequential execution.
 
-### Run Examples
-
-```bash
-# ACMK examples
-python3 examples/simple_example.py
-python3 examples/demo.py
-python3 examples/ray_parallel_example.py  # Ray parallel processing demo
-
-# SDGCA example
-python3 examples/sdgca_example.py
-```
-
-### Run Tests
-
-```bash
-# All tests
-pytest
-
-# Skip Ray tests (if Ray not installed)
-pytest -m "not ray"
-```
-
 ## Requirements
 
 - Python 3.9+
@@ -186,25 +164,6 @@ pip install ray>=2.9.0
 ```python
 # Works with or without Ray installed
 base_data = generate_base_clusterings(X, n_clusters=5, use_ray=True)
-```
-
-## Project Structure
-
-```
-Consensus-clustering/
-├── src/consensus_clustering/    # Main package
-│   ├── core/                    # ACMK and SDGCA algorithms
-│   ├── clustering/              # K-means and base generation
-│   ├── optimization/            # L-BFGS-B and objectives
-│   ├── metrics/                 # Clustering evaluation
-│   ├── ray_parallel/            # Ray parallelization utilities
-│   └── utils/                   # Data I/O and linear algebra
-├── tests/                       # Test suite
-│   ├── unit/                    # Unit tests for ACMK and SDGCA
-│   └── integration/             # Integration tests
-├── benchmarks/                  # Performance benchmarks
-├── examples/                    # Usage examples
-└── pyproject.toml              # Package configuration
 ```
 
 ## Algorithms

@@ -10,8 +10,7 @@ from scipy.sparse import csr_matrix
 
 from .kmeans import litekmeans
 from ..metrics import clustering_measure
-from ..ray_parallel.parallel_base_gen import generate_base_clusterings_parallel
-from ..ray_parallel.utils import init_ray_if_needed
+from ..utils.ray_utils import init_ray_if_needed
 from ..utils.data_io import save_results
 
 
@@ -59,15 +58,62 @@ def generate_base_clusterings(
         - 'labels': List of cluster labels (m_base arrays)
         - 'metrics': Evaluation metrics if y_true provided (optional)
 
-    (100, 100)
-    10
     """
-    if use_ray:
-
-        if init_ray_if_needed(use_ray=True):
-            return generate_base_clusterings_parallel(
-                X, n_clusters, m_base, n_init, random_state, y_true
+    if use_ray and init_ray_if_needed(use_ray=True):
+        import ray
+        
+        @ray.remote
+        def _generate_single_clustering(X, n_clusters, n_init, seed):
+            """Generate a single base clustering using k-means."""
+            labels, centers, _ = litekmeans(
+                X, n_clusters=n_clusters, max_iter=100, n_init=n_init, random_state=seed
             )
+            return labels, centers
+
+        X_ref = ray.put(X)
+
+        seeds = [None if random_state is None else random_state + i for i in range(m_base)]
+        
+        futures = [_generate_single_clustering.remote(X_ref, n_clusters, n_init, seed)
+                   for seed in seeds]
+        results = ray.get(futures)
+        
+        n_samples = X.shape[0]
+        W = np.zeros((n_samples, n_samples))
+        G_list = []
+        F_list = []
+        labels_list = []
+        metrics_list = [] if y_true is not None else None
+        
+        for labels, centers in results:
+            G_dense = np.zeros((n_samples, n_clusters))
+            for j in range(n_samples):
+                G_dense[j, labels[j]] = 1
+            G = csr_matrix(G_dense)
+            
+            G_list.append(G)
+            F_list.append(centers)
+            labels_list.append(labels)
+            
+            W += G_dense @ G_dense.T
+            
+            if y_true is not None:
+                metrics = clustering_measure(y_true, labels)
+                metrics_list.append(metrics)
+        
+        W = W / m_base
+        
+        base_data = {
+            "W": W,
+            "G": G_list,
+            "F": F_list,
+            "labels": labels_list,
+        }
+        
+        if y_true is not None:
+            base_data["metrics"] = metrics_list
+        
+        return base_data
 
     n_samples = X.shape[0]
 

@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from consensus_clustering import SDGCA
+from src.sdgca import SDGCA
 
 
 class TestSDGCA:

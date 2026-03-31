@@ -34,7 +34,7 @@ def load_data(
     filepath = Path(filepath)
 
     if format == "auto":
-        format = filepath.suffix[1:]  # Remove the dot
+        format = filepath.suffix[1:]
 
     if format == "mat":
         return _load_mat(filepath)
@@ -58,7 +58,6 @@ def _load_mat(filepath: Path) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     y = data.get("y", data.get("labels", data.get("gnd", None)))
 
     if X is None:
-        # Try to find the largest array
         arrays = {k: v for k, v in data.items() if isinstance(v, np.ndarray) and v.ndim == 2}
         if arrays:
             X = max(arrays.values(), key=lambda x: x.size)
@@ -66,7 +65,6 @@ def _load_mat(filepath: Path) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     if X is None:
         raise ValueError(f"Could not find data matrix in {filepath}")
 
-    # Ensure y is 1D if it exists
     if y is not None:
         y = np.asarray(y).ravel()
 
@@ -86,7 +84,6 @@ def _load_npz(filepath: Path) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     y = data.get("y", data.get("labels", None))
 
     if X is None:
-        # Use the first array
         X = data[data.files[0]]
 
     if y is not None:
@@ -99,7 +96,6 @@ def _load_csv(filepath: Path) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     """Load CSV file."""
     df = pd.read_csv(filepath)
 
-    # Check if there's a 'label' or 'y' column
     label_cols = [col for col in df.columns if col.lower() in ["label", "labels", "y", "target"]]
 
     if label_cols:

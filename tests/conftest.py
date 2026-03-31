@@ -23,14 +23,12 @@ def synthetic_data():
 
 @pytest.fixture
 def small_synthetic_data():
-    """Generate small synthetic data for quick tests."""
     X, y = make_blobs(n_samples=50, n_features=5, centers=3, cluster_std=0.5, random_state=42)
     return X, y
 
 
 @pytest.fixture
 def tiny_data():
-    """Generate tiny data for unit tests."""
     np.random.seed(42)
     X = np.random.randn(20, 4)
     y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])
@@ -39,12 +37,6 @@ def tiny_data():
 
 @pytest.fixture
 def ray_context():
-    """
-    Initialize and shutdown Ray for tests.
-
-    This fixture is only used by tests marked with @pytest.mark.ray.
-    Tests without Ray can run independently.
-    """
     try:
         import ray
 

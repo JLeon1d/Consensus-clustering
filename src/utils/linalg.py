@@ -49,13 +49,11 @@ def eig1(
 
     try:
         if use_sparse:
-            # Use sparse eigenvalue solver
             if is_max:
                 eigval, eigvec = eigsh(A, k=c, which="LA")
             else:
                 eigval, eigvec = eigsh(A, k=c, which="SA")
         else:
-            # Use dense eigenvalue solver
             A_dense = A.toarray() if issparse(A) else A
             eigval, eigvec = eigh(A_dense)
 
@@ -65,7 +63,7 @@ def eig1(
         eigval, eigvec = eigh(A_dense)
 
     if is_max:
-        idx = np.argsort(eigval)[::-1]  # Descending order
+        idx = np.argsort(eigval)[::-1]
     else:
         idx = np.argsort(eigval)
 

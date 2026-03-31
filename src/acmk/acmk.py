@@ -7,9 +7,11 @@ from scipy.optimize import minimize
 from scipy.sparse import issparse
 
 from ..clustering.kmeans import litekmeans
-from ..optimization.lbfgsb import lbfgsb_optimize_A, lbfgsb_optimize_W
-from ..optimization.optimize_g import optimize_G
+from .lbfgsb import lbfgsb_optimize_A, lbfgsb_optimize_W
+from .optimize_g import optimize_G
+from . import ray_parallel
 from ..utils.linalg import discretisation, eig1
+from ..utils.ray_utils import init_ray_if_needed
 
 
 class ACMK:
@@ -69,6 +71,7 @@ class ACMK:
         mu_init: float = 1.0,
         rho: float = 1.05,
         verbose: bool = False,
+        use_ray: bool = False,
     ):
         self.n_clusters = n_clusters
         self.m_base = m_base
@@ -78,8 +81,11 @@ class ACMK:
         self.mu_init = mu_init
         self.rho = rho
         self.verbose = verbose
+        self.use_ray = use_ray
+        
+        if self.use_ray:
+            init_ray_if_needed(use_ray=True)
 
-        # Attributes set during fit
         self.labels_spectral_: Optional[np.ndarray] = None
         self.labels_kmeans_: Optional[np.ndarray] = None
         self.W_: Optional[np.ndarray] = None
@@ -128,12 +134,22 @@ class ACMK:
         Lambda1 = np.zeros((n, n))
         Lambda2 = np.zeros((n, n))
         mu = self.mu_init
+        
+        if self.use_ray:
+            batch_size = ray_parallel.get_optimal_batch_size(m, n)
+            if self.verbose:
+                print(f"Using adaptive batch size: {batch_size} (n={n}, m={m})")
+        else:
+            batch_size = 4
 
         for iteration in range(self.max_iter):
             if self.verbose:
                 print(f"Iteration {iteration + 1}/{self.max_iter}")
 
-            GF = [G[j] @ F[j] for j in range(m)]
+            if self.use_ray:
+                GF = ray_parallel.compute_GF_parallel(G, F, batch_size=batch_size)
+            else:
+                GF = [G[j] @ F[j] for j in range(m)]
             GF_all = sum(GF)
 
             dd = 1.0 / np.sqrt(np.maximum(W.sum(axis=1), np.finfo(float).eps))
@@ -154,30 +170,40 @@ class ACMK:
             for _ in range(k):
                 AX = A @ AX
 
-            G = optimize_G(AX, G, F, W, alpha, self.lambda_, max_iter=5)
+            if self.use_ray:
+                G = ray_parallel.optimize_G_parallel(AX, G, F, W, alpha, self.lambda_, max_iter=5)
+            else:
+                G = optimize_G(AX, G, F, W, alpha, self.lambda_, max_iter=5)
 
-            for j in range(m):
-                GG = G[j].T @ G[j]
-                gg = 1.0 / np.maximum(np.diag(GG), np.finfo(float).eps)
-                GX = G[j].T @ AX
-                F[j] = GX * gg[:, np.newaxis]
+            if self.use_ray:
+                F = ray_parallel.update_F_parallel(G, AX, batch_size=batch_size)
+            else:
+                for j in range(m):
+                    GG = G[j].T @ G[j]
+                    gg = 1.0 / np.maximum(np.diag(GG), np.finfo(float).eps)
+                    GX = G[j].T @ AX
+                    F[j] = GX * gg[:, np.newaxis]
 
             V = W + Lambda2 / mu
             V = (V + V.T) / 2
 
-            H = np.zeros((m, m))
-            for j in range(m):
-                for p in range(m):
-                    tmp = G[j].T @ G[p]
-                    tmp = tmp @ G[p].T
-                    H[j, p] = np.sum(G[j].T * tmp)
-            H = H + H.T
+            if self.use_ray:
+                H = ray_parallel.compute_H_matrix_parallel(G, batch_size=batch_size)
+                f = ray_parallel.compute_f_vector_parallel(W, G, batch_size=batch_size)
+            else:
+                H = np.zeros((m, m))
+                for j in range(m):
+                    for p in range(m):
+                        tmp = G[j].T @ G[p]
+                        tmp = tmp @ G[p].T
+                        H[j, p] = np.sum(G[j].T * tmp)
+                H = H + H.T
 
-            f = np.zeros(m)
-            for j in range(m):
-                tmp2 = W.T @ G[j]
-                f[j] = np.sum(tmp2 * G[j])
-            f = -2.0 * f
+                f = np.zeros(m)
+                for j in range(m):
+                    tmp2 = W.T @ G[j]
+                    f[j] = np.sum(tmp2 * G[j])
+                f = -2.0 * f
 
             result = minimize(
                 lambda a: 0.5 * a @ H @ a + f @ a,

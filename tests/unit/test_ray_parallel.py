@@ -3,9 +3,8 @@
 import numpy as np
 import pytest
 
-from consensus_clustering import ray_parallel
-from consensus_clustering.clustering.base_generation import generate_base_clusterings
-from consensus_clustering.ray_parallel.utils import (
+from src.clustering.base_generation import generate_base_clusterings
+from src.utils.ray_utils import (
     get_ray_status,
     init_ray_if_needed,
     is_ray_available,
@@ -14,15 +13,11 @@ from consensus_clustering.ray_parallel.utils import (
 
 
 class TestRayUtils:
-    """Test Ray utility functions."""
-
     def test_is_ray_available(self):
-        """Test Ray availability detection."""
         result = is_ray_available()
         assert isinstance(result, bool)
 
     def test_get_ray_status(self):
-        """Test Ray status retrieval."""
         status = get_ray_status()
         assert isinstance(status, dict)
         assert 'available' in status
@@ -32,13 +27,11 @@ class TestRayUtils:
         assert isinstance(status['initialized'], bool)
 
     def test_init_ray_if_needed_disabled(self):
-        """Test Ray initialization when disabled."""
         result = init_ray_if_needed(use_ray=False)
         assert result is False
 
     @pytest.mark.skipif(not is_ray_available(), reason="Ray not installed")
     def test_init_and_shutdown_ray(self):
-        """Test Ray initialization and shutdown."""
         shutdown_ray_if_initialized()
 
         result = init_ray_if_needed(use_ray=True)
@@ -55,22 +48,16 @@ class TestRayUtils:
 
 @pytest.mark.skipif(not is_ray_available(), reason="Ray not installed")
 class TestParallelBaseClustering:
-    """Test parallel base clustering generation."""
-
     def setup_method(self):
-        """Set up test fixtures."""
         np.random.seed(42)
         self.X = np.random.randn(100, 10)
         self.n_clusters = 3
         self.m_base = 5
 
     def teardown_method(self):
-        """Clean up after tests."""
         shutdown_ray_if_initialized()
 
     def test_parallel_base_generation_basic(self):
-        """Test basic parallel base clustering generation."""
-
         result = generate_base_clusterings(
             self.X,
             n_clusters=self.n_clusters,
@@ -96,8 +83,6 @@ class TestParallelBaseClustering:
             assert np.all((result['labels'][i] >= 0) & (result['labels'][i] < self.n_clusters))
 
     def test_parallel_vs_sequential_consistency(self):
-        """Test that parallel and sequential give similar results."""
-
         result_seq = generate_base_clusterings(
             self.X,
             n_clusters=self.n_clusters,
@@ -122,8 +107,6 @@ class TestParallelBaseClustering:
         np.testing.assert_allclose(result_seq['W'], result_par['W'], rtol=1e-5)
 
     def test_parallel_with_true_labels(self):
-        """Test parallel generation with true labels for metrics."""
-
         y_true = np.random.randint(0, self.n_clusters, size=100)
 
         result = generate_base_clusterings(
@@ -139,14 +122,11 @@ class TestParallelBaseClustering:
         assert len(result['metrics']) == self.m_base
 
         for metrics in result['metrics']:
-            assert 'ACC' in metrics
-            assert 'NMI' in metrics
-            assert 'Purity' in metrics
-            assert 'ARI' in metrics
+            assert 'acc' in metrics
+            assert 'nmi' in metrics
+            assert 'purity' in metrics
 
     def test_parallel_fallback_when_ray_unavailable(self):
-        """Test graceful fallback when Ray is not available."""
-
         shutdown_ray_if_initialized()
 
         result = generate_base_clusterings(
@@ -164,19 +144,15 @@ class TestParallelBaseClustering:
 
 
 class TestRayIntegration:
-    """Integration tests for Ray functionality."""
+    def test_ray_utils_importable(self):
+        from src.utils import ray_utils
 
-    def test_import_ray_parallel_module(self):
-        """Test that ray_parallel module can be imported."""
-
-        assert hasattr(ray_parallel, 'is_ray_available')
-        assert hasattr(ray_parallel, 'init_ray_if_needed')
-        assert hasattr(ray_parallel, 'shutdown_ray_if_initialized')
-        assert hasattr(ray_parallel, 'get_ray_status')
-        assert hasattr(ray_parallel, 'generate_base_clusterings_parallel')
+        assert hasattr(ray_utils, 'is_ray_available')
+        assert hasattr(ray_utils, 'init_ray_if_needed')
+        assert hasattr(ray_utils, 'shutdown_ray_if_initialized')
+        assert hasattr(ray_utils, 'get_ray_status')
 
     def test_ray_status_without_initialization(self):
-        """Test Ray status when not initialized."""
         shutdown_ray_if_initialized()
 
         status = get_ray_status()

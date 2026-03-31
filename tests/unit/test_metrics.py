@@ -3,13 +3,13 @@
 import numpy as np
 import pytest
 
-from consensus_clustering.metrics.clustering_measure import (
+from src.metrics.clustering_measure import (
     accuracy,
     clustering_measure,
     clustering_purity,
     normalized_mutual_info,
 )
-from consensus_clustering.metrics.hungarian import best_map, hungarian
+from src.metrics.hungarian import best_map, hungarian
 
 
 class TestHungarian:
