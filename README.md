@@ -1,180 +1,108 @@
-# Consensus Clustering - ACMK and SDGCA Algorithms
+# Consensus Clustering — ACMK and SDGCA
 
-Python3 implementation of consensus clustering algorithms with Ray framework support for parallel processing:
-- **ACMK** (Adaptive Consensus Multiple Kernel)
-- **SDGCA** (Similarity and Dissimilarity Guided Co-association)
+Python implementation of two consensus clustering algorithms with optional Ray parallelization:
+
+- **ACMK** — Adaptive Consensus Multiple Kernel clustering (ADMM-based)
+- **SDGCA** — Similarity and Dissimilarity Guided Co-association clustering
 
 ## Installation
 
-### Quick Setup with Ray (Recommended)
+Requires Python 3.9–3.12 (Ray is not yet available for 3.13+).
 
-Run the automated setup script that creates a virtual environment with Python 3.11 and installs everything including Ray:
+### With Ray (recommended)
 
 ```bash
 ./setup_with_ray.sh
-```
-
-This script will:
-- Check for Python 3.11 (required for Ray)
-- Create a virtual environment
-- Install all dependencies including Ray
-- Verify the installation
-
-After setup, activate the environment:
-```bash
 source venv/bin/activate
 ```
 
-### Manual Installation Options
+The script finds a compatible Python version (3.9–3.12), creates `venv/`, and installs all dependencies including Ray.
 
-#### Basic Installation (without Ray)
+### Without Ray
 
 ```bash
 pip install -e .
 ```
 
-#### Full Installation (with Ray and all features)
-
-Requires Python 3.9-3.12:
-```bash
-pip install -e ".[all]"
-```
-
-#### Install Only Ray Support
+### Verify
 
 ```bash
-pip install -e ".[ray]"
+python -c "from src import ACMK, SDGCA; print('OK')"
+python -c "from src.utils.ray_utils import is_ray_available; print('Ray:', is_ray_available())"
 ```
 
-### Verify Installation
+## Usage
 
-```bash
-python -c "from consensus_clustering import ACMK; print('✓ Works!')"
-```
-
-### Check Ray Status
-
-```bash
-python -c "from src.utils.ray_utils import is_ray_available; print('Ray available:', is_ray_available())"
-```
-
-### Python Version Requirements
-
-- **Core package**: Python 3.9+
-- **Ray support**: Python 3.9-3.12 (Ray not yet available for Python 3.13+)
-
-If you have Python 3.13+, use the `setup_with_ray.sh` script which will create a venv with Python 3.11.
-
-## Quick Start
-
-### ACMK Usage
+### ACMK
 
 ```python
-from consensus_clustering import ACMK
-from consensus_clustering.clustering import generate_base_clusterings
 import numpy as np
+from src import ACMK
+from src.clustering.base_generation import generate_base_clusterings
+from sklearn.metrics.pairwise import rbf_kernel
 
-# Generate synthetic data
-X = np.random.randn(100, 10)
+X = np.random.randn(200, 10)
+W = rbf_kernel(X, gamma=0.1)
 
-# Generate base clusterings
 base_data = generate_base_clusterings(X, n_clusters=5, m_base=10)
 
-# Run ACMK
-acmk = ACMK(n_clusters=5, m_base=10, lambda_=0.1)
-acmk.fit(X, **base_data)
-
-# Get results
-labels = acmk.predict(method='spectral')
-print(f"Clustering complete! Labels shape: {labels.shape}")
+acmk = ACMK(n_clusters=5, m_base=10)
+acmk.fit(X, W, base_data['G'], base_data['F'])
+labels = acmk.predict()
 ```
 
-### SDGCA Usage
+### SDGCA
 
 ```python
-from consensus_clustering import SDGCA
-from sklearn.cluster import KMeans
 import numpy as np
+from src import SDGCA
+from src.clustering.base_generation import generate_base_clusterings
 
-# Generate synthetic data
-from sklearn.datasets import make_blobs
-X, y_true = make_blobs(n_samples=100, n_features=10, centers=3, random_state=42)
+X = np.random.randn(200, 10)
+base_data = generate_base_clusterings(X, n_clusters=5, m_base=10)
+base_clusterings = np.column_stack(base_data['labels'])
 
-# Generate base clusterings using k-means
-n_base = 15
-base_clusterings = np.zeros((len(X), n_base), dtype=int)
-for i in range(n_base):
-    kmeans = KMeans(n_clusters=3, random_state=i, n_init=10)
-    base_clusterings[:, i] = kmeans.fit_predict(X) + 1
-
-# Run SDGCA
-sdgca = SDGCA(n_clusters=3, lambda_param=0.1, eta=0.7, theta=0.6)
+sdgca = SDGCA(n_clusters=5)
 labels = sdgca.fit_predict(base_clusterings)
-print(f"Clustering complete! Labels shape: {labels.shape}")
 ```
 
-### Parallel Processing with Ray (Optional)
+### Ray parallelization
+
+Pass `use_ray=True` to `generate_base_clusterings` or to the algorithm constructors. Falls back to sequential if Ray is not installed.
 
 ```python
-from consensus_clustering.clustering import generate_base_clusterings
+base_data = generate_base_clusterings(X, n_clusters=5, m_base=10, use_ray=True)
 
-# Enable Ray for parallel base clustering generation
-base_data = generate_base_clusterings(
-    X,
-    n_clusters=5,
-    m_base=10,
-    use_ray=True  # Enable parallel processing
-)
+acmk = ACMK(n_clusters=5, m_base=10, use_ray=True)
+sdgca = SDGCA(n_clusters=5, use_ray=True)
 ```
 
-Ray will automatically parallelize the generation of base clusterings across available CPU cores. If Ray is not installed, the function gracefully falls back to sequential execution.
+## Running benchmarks
+
+```bash
+python scripts/run_benchmark.py acmk --sizes 500 1000 --k 10 --m 10 --output benchmarks/acmk.json
+python scripts/run_benchmark.py sdgca --sizes 500 1000 2000 --k-mode sqrt --output benchmarks/sdgca.json
+```
+
+See [`benchmarks/README.md`](benchmarks/README.md) for full argument reference. Use `scripts/run_remote.py` to run benchmarks on a remote server.
+
+## Running tests
+
+```bash
+pytest tests/
+```
 
 ## Requirements
 
-- Python 3.9+
-- numpy >= 1.24.0
-- scipy >= 1.10.0
-- scikit-learn >= 1.3.0
-- pandas >= 2.0.0
-- pyyaml >= 6.0
-- ray >= 2.9.0 (optional, for parallel processing)
-
-## Features
-
-### Optional Ray Parallelization
-
-The package includes optional Ray support for parallel processing:
-
-- **Automatic Detection**: Ray is automatically detected if installed
-- **Graceful Fallback**: Falls back to sequential execution if Ray unavailable
-- **Simple API**: Just add `use_ray=True` parameter
-- **Transparent**: Same function signatures with or without Ray
-
-**Benefits:**
-- Faster base clustering generation on multi-core systems
-- Scales to distributed computing with Ray clusters
-- No code changes needed when Ray is unavailable
-
-**Installation:**
-```bash
-pip install ray>=2.9.0
-```
-
-**Usage:**
-```python
-# Works with or without Ray installed
-base_data = generate_base_clusterings(X, n_clusters=5, use_ray=True)
-```
+- Python 3.9–3.12
+- numpy, scipy, scikit-learn
+- ray >= 2.9.0 (optional)
 
 ## Algorithms
 
-### ACMK (Adaptive Consensus Multiple Kernel)
-Performs consensus clustering by combining multiple base clusterings through an ADMM optimization framework with adaptive kernel weighting.
+**ACMK** combines multiple base clusterings through ADMM optimization with adaptive kernel weighting.
 
-### SDGCA (Similarity and Dissimilarity Guided Co-association)
-Constructs a refined co-association matrix using similarity and dissimilarity guidance through ADMM optimization. Based on the paper "Similarity and Dissimilarity Guided Co-association Matrix Construction for Ensemble Clustering".
-
-**SDGCA Repository**: The original MATLAB implementation is available at https://github.com/xuz2019/SDGCA and has been added as a git remote (`sdgca`) to this repository for reference and testing.
+**SDGCA** constructs a refined co-association matrix using both similarity and dissimilarity guidance. Based on: *"Similarity and Dissimilarity Guided Co-association Matrix Construction for Ensemble Clustering"*.
 
 ## License
 

@@ -86,3 +86,5 @@ plots/
 !README.md
 *.json
 Generator.pdf
+.memory/
+*.txt

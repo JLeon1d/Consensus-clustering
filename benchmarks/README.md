@@ -37,4 +37,4 @@ Each completed sub-run is appended to the JSON file immediately. The file contai
 
 ## Remote benchmarks
 
-See [`documentation/remote_benchmarks.md`](../documentation/remote_benchmarks.md) for running benchmarks on the remote server via `scripts/run_remote.py`.
+Use `scripts/run_remote.py` to upload the project and run benchmarks on the remote server in the background. See `scripts/run_remote.py --help` for options.
