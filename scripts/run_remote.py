@@ -75,9 +75,9 @@ def main():
             print(f"\nLog file:     {log_file}")
             print(f"Results file: {output_file}")
             print("\nTo check status:")
-            print(f"  ssh u3@ithse.ru -p 1022 'tail -f Consensus-clustering/{log_file}'")
+            print(f"  ssh $REMOTE_USER@$REMOTE_HOST -p $REMOTE_PORT 'tail -f Consensus-clustering/{log_file}'")
             print("\nTo download results:")
-            print(f"  scp -P 1022 u3@ithse.ru:Consensus-clustering/{output_file} ./benchmarks/")
+            print(f"  scp -P $REMOTE_PORT $REMOTE_USER@$REMOTE_HOST:Consensus-clustering/{output_file} ./benchmarks/")
         else:
             print(f"✗ Failed to launch benchmark (exit code: {exit_code})")
             if stderr:

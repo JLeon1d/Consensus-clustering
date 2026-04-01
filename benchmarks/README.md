@@ -38,6 +38,3 @@ Each completed sub-run is appended to the JSON file immediately. The file contai
 - `completed` — list of completed run keys (used for resume)
 - `failures` — any errors encountered
 
-## Remote benchmarks
-
-Use `scripts/run_remote.py` to upload the project and run benchmarks on the remote server in the background. See `scripts/run_remote.py --help` for options.
