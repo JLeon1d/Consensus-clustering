@@ -10,6 +10,7 @@ import numpy as np
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 from scipy.sparse import issparse
+from ..clustering.base_generation import generate_base_clusterings
 from ..utils.ray_utils import init_ray_if_needed
 from . import ray_parallel
 
@@ -72,6 +73,7 @@ class SDGCA:
     def __init__(
         self,
         n_clusters: int,
+        m_base: int = 10,
         lambda_param: float = 0.09,
         eta: float = 0.75,
         theta: float = 0.65,
@@ -88,6 +90,7 @@ class SDGCA:
         use_ray: bool = False,
     ):
         self.n_clusters = n_clusters
+        self.m_base = m_base
         self.lambda_param = lambda_param
         self.eta = eta
         self.theta = theta
@@ -102,7 +105,7 @@ class SDGCA:
         self.tol = tol
         self.verbose = verbose
         self.use_ray = use_ray
-        
+
         if self.use_ray:
             init_ray_if_needed(use_ray=True)
 
@@ -113,23 +116,24 @@ class SDGCA:
         self.NWCA_: Optional[np.ndarray] = None
         self.CA_: Optional[np.ndarray] = None
 
-    def fit(self, base_clusterings: np.ndarray) -> "SDGCA":
+    def fit(self, X: np.ndarray) -> "SDGCA":
         """
         Fit the SDGCA model.
 
         Parameters
         ----------
-        base_clusterings : np.ndarray
-            Base clustering matrix of shape (n_samples, n_base_clusterings)
-            where each column contains cluster labels for one base clustering
+        X : np.ndarray
+            Data matrix of shape (n_samples, n_features)
 
         Returns
         -------
         self : SDGCA
             Fitted estimator
         """
-        if issparse(base_clusterings):
-            base_clusterings = base_clusterings.toarray()
+        base_data = generate_base_clusterings(
+            X, n_clusters=self.n_clusters, m_base=self.m_base, use_ray=self.use_ray
+        )
+        base_clusterings = np.column_stack(base_data['labels'])
 
         n_samples, m_base = base_clusterings.shape
 
@@ -677,19 +681,19 @@ class SDGCA:
             raise ValueError("Model has not been fitted yet. Call fit() first.")
         return self.labels_
 
-    def fit_predict(self, base_clusterings: np.ndarray) -> np.ndarray:
+    def fit_predict(self, X: np.ndarray) -> np.ndarray:
         """
         Fit the model and return cluster labels.
 
         Parameters
         ----------
-        base_clusterings : np.ndarray
-            Base clustering matrix
+        X : np.ndarray
+            Data matrix of shape (n_samples, n_features)
 
         Returns
         -------
         labels : np.ndarray
             Cluster labels
         """
-        self.fit(base_clusterings)
+        self.fit(X)
         return self.predict()

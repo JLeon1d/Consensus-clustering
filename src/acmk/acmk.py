@@ -4,9 +4,10 @@ from typing import List, Optional
 
 import numpy as np
 from scipy.optimize import minimize
-from scipy.sparse import issparse
+from sklearn.metrics.pairwise import rbf_kernel
 
 from ..clustering.kmeans import litekmeans
+from ..clustering.base_generation import generate_base_clusterings
 from .lbfgsb import lbfgsb_optimize_A, lbfgsb_optimize_W
 from .optimize_g import optimize_G
 from . import ray_parallel
@@ -37,6 +38,8 @@ class ACMK:
         Initial penalty parameter
     rho : float, default=1.05
         Penalty parameter increase rate
+    rbf_gamma : float, default=0.1
+        Gamma parameter for RBF kernel used to compute similarity matrix W
     verbose : bool, default=False
         Whether to print progress information
 
@@ -70,6 +73,7 @@ class ACMK:
         max_iter: int = 20,
         mu_init: float = 1.0,
         rho: float = 1.05,
+        rbf_gamma: float = 0.1,
         verbose: bool = False,
         use_ray: bool = False,
     ):
@@ -80,9 +84,10 @@ class ACMK:
         self.max_iter = max_iter
         self.mu_init = mu_init
         self.rho = rho
+        self.rbf_gamma = rbf_gamma
         self.verbose = verbose
         self.use_ray = use_ray
-        
+
         if self.use_ray:
             init_ray_if_needed(use_ray=True)
 
@@ -95,14 +100,7 @@ class ACMK:
         self.alpha_: Optional[np.ndarray] = None
         self.objective_history_: List[float] = []
 
-    def fit(
-        self,
-        X: np.ndarray,
-        W: np.ndarray,
-        G: List[np.ndarray],
-        F: List[np.ndarray],
-        **kwargs
-    ) -> "ACMK":
+    def fit(self, X: np.ndarray) -> "ACMK":
         """
         Fit the ACMK model.
 
@@ -110,18 +108,22 @@ class ACMK:
         ----------
         X : np.ndarray
             Data matrix of shape (n_samples, n_features)
-        W : np.ndarray
-            Initial consensus matrix (n_samples x n_samples)
-        G : list of np.ndarray
-            Initial cluster assignment matrices
-        F : list of np.ndarray
-            Initial cluster center matrices
 
         Returns
         -------
         self : ACMK
             Fitted estimator
         """
+        W_init = rbf_kernel(X, gamma=self.rbf_gamma)
+        W_init = (W_init + W_init.T) / 2
+
+        base_data = generate_base_clusterings(
+            X, n_clusters=self.n_clusters, m_base=self.m_base, use_ray=self.use_ray
+        )
+        G = base_data['G']
+        F = base_data['F']
+        W = W_init
+
         n, d = X.shape
         m = self.m_base
         c = self.n_clusters
@@ -130,7 +132,6 @@ class ACMK:
         alpha = np.ones(m) / m
         V = W.copy()
         A = W.copy()
-        G = [G_i.toarray() if issparse(G_i) else G_i for G_i in G]
         Lambda1 = np.zeros((n, n))
         Lambda2 = np.zeros((n, n))
         mu = self.mu_init
@@ -269,28 +270,14 @@ class ACMK:
         else:
             raise ValueError(f"Unknown method: {method}")
 
-    def fit_predict(
-        self,
-        X: np.ndarray,
-        W: np.ndarray,
-        G: List[np.ndarray],
-        F: List[np.ndarray],
-        method: str = "spectral",
-        **kwargs
-    ) -> np.ndarray:
+    def fit_predict(self, X: np.ndarray, method: str = "spectral") -> np.ndarray:
         """
         Fit the model and return cluster labels.
 
         Parameters
         ----------
         X : np.ndarray
-            Data matrix
-        W : np.ndarray
-            Initial consensus matrix
-        G : list of np.ndarray
-            Initial cluster assignment matrices
-        F : list of np.ndarray
-            Initial cluster center matrices
+            Data matrix of shape (n_samples, n_features)
         method : str, default='spectral'
             Method to use: 'spectral' or 'kmeans'
 
@@ -299,5 +286,5 @@ class ACMK:
         labels : np.ndarray
             Cluster labels
         """
-        self.fit(X, W, G, F, **kwargs)
+        self.fit(X)
         return self.predict(method=method)

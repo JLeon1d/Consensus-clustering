@@ -14,7 +14,7 @@ def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description='Run benchmarks on remote server')
 
-    parser.add_argument('algorithm', choices=['acmk', 'sdgca'], help='Algorithm to benchmark')
+    parser.add_argument('algorithm', choices=['acmk', 'sdgca', 'base_clustering'], help='Algorithm to benchmark')
     parser.add_argument('--sizes', type=int, nargs='+', required=True, help='Problem sizes (n)')
     parser.add_argument('--k', type=int, default=5, help='Number of clusters (default: 5)')
     parser.add_argument('--k-mode', choices=['fixed', 'sqrt', 'n_div_10'], default='fixed',

@@ -1,6 +1,15 @@
 #!/bin/bash
 # Example benchmark runs
 
+# Base clustering only: k = n/10, m=10, sizes 1000 5000 10000
+python scripts/run_benchmark.py base_clustering \
+    --sizes 1000 5000 10000 \
+    --k-mode n_div_10 \
+    --m 10 \
+    --runs 1 \
+    --clusterability 0.9 \
+    --output benchmarks/base_clustering_example.json
+
 # ACMK: fixed k=10, sizes 500 and 1000, 2 runs each
 python scripts/run_benchmark.py acmk \
     --sizes 500 1000 \

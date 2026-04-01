@@ -14,12 +14,12 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from benchmarks.benchmark import run_acmk_benchmark, run_sdgca_benchmark
+from benchmarks.benchmark import run_acmk_benchmark, run_sdgca_benchmark, run_base_clustering_benchmark
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run ACMK or SDGCA benchmarks with checkpointing')
-    parser.add_argument('algorithm', choices=['acmk', 'sdgca'], help='Algorithm to benchmark')
+    parser.add_argument('algorithm', choices=['acmk', 'sdgca', 'base_clustering'], help='Algorithm to benchmark')
     parser.add_argument('--sizes', type=int, nargs='+', required=True, help='Dataset sizes to benchmark')
     parser.add_argument('--k', type=int, default=5, help='Number of clusters (default: 5)')
     parser.add_argument('--k-mode', choices=['fixed', 'sqrt', 'n_div_10'], default='fixed',
@@ -96,9 +96,12 @@ def run_one(state: dict, path: str, algorithm: str, n: int, k: int, run_idx: int
         if algorithm == 'acmk':
             result = run_acmk_benchmark(n=n, k=k, m=args.m, max_iter=max_iter,
                                         use_ray=use_ray, clusterability=args.clusterability, verbose=verbose)
-        else:
+        elif algorithm == 'sdgca':
             result = run_sdgca_benchmark(n=n, k=k, m=args.m, max_iter=max_iter,
                                          use_ray=use_ray, clusterability=args.clusterability, verbose=verbose)
+        else:
+            result = run_base_clustering_benchmark(n=n, k=k, m=args.m,
+                                                   use_ray=use_ray, clusterability=args.clusterability, verbose=verbose)
         state['results'].append({
             'algorithm': algorithm,
             'n': n,

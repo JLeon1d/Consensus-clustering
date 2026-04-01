@@ -66,12 +66,10 @@ class TestParallelBaseClustering:
             use_ray=True,
         )
 
-        assert 'W' in result
         assert 'G' in result
         assert 'F' in result
         assert 'labels' in result
 
-        assert result['W'].shape == (100, 100)
         assert len(result['G']) == self.m_base
         assert len(result['F']) == self.m_base
         assert len(result['labels']) == self.m_base
@@ -99,12 +97,9 @@ class TestParallelBaseClustering:
             use_ray=True,
         )
 
-        assert result_seq['W'].shape == result_par['W'].shape
         assert len(result_seq['G']) == len(result_par['G'])
         assert len(result_seq['F']) == len(result_par['F'])
         assert len(result_seq['labels']) == len(result_par['labels'])
-
-        np.testing.assert_allclose(result_seq['W'], result_par['W'], rtol=1e-5)
 
     def test_parallel_with_true_labels(self):
         y_true = np.random.randint(0, self.n_clusters, size=100)
@@ -137,7 +132,6 @@ class TestParallelBaseClustering:
             use_ray=True,
         )
 
-        assert 'W' in result
         assert 'G' in result
         assert 'F' in result
         assert 'labels' in result

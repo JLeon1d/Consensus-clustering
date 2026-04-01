@@ -13,6 +13,20 @@ from ..metrics import clustering_measure
 from ..utils.ray_utils import init_ray_if_needed
 from ..utils.data_io import save_results
 
+try:
+    import ray
+
+    @ray.remote
+    def _generate_single_clustering(X, n_clusters, n_init, seed):
+        """Generate a single base clustering; return labels and centers."""
+        labels, centers, _ = litekmeans(
+            X, n_clusters=n_clusters, max_iter=100, n_init=n_init, random_state=seed
+        )
+        return labels, centers
+
+except ImportError:
+    pass
+
 
 def generate_base_clusterings(
     X: np.ndarray,
@@ -52,8 +66,7 @@ def generate_base_clusterings(
     -------
     base_data : dict
         Dictionary containing:
-        - 'W': Initial consensus matrix (n_samples x n_samples)
-        - 'G': List of cluster assignment matrices (m_base matrices)
+        - 'G': List of cluster assignment matrices (m_base matrices, dense float64)
         - 'F': List of cluster center matrices (m_base matrices)
         - 'labels': List of cluster labels (m_base arrays)
         - 'metrics': Evaluation metrics if y_true provided (optional)
@@ -61,63 +74,42 @@ def generate_base_clusterings(
     """
     if use_ray and init_ray_if_needed(use_ray=True):
         import ray
-        
-        @ray.remote
-        def _generate_single_clustering(X, n_clusters, n_init, seed):
-            """Generate a single base clustering using k-means."""
-            labels, centers, _ = litekmeans(
-                X, n_clusters=n_clusters, max_iter=100, n_init=n_init, random_state=seed
-            )
-            return labels, centers
 
         X_ref = ray.put(X)
-
         seeds = [None if random_state is None else random_state + i for i in range(m_base)]
-        
-        futures = [_generate_single_clustering.remote(X_ref, n_clusters, n_init, seed)
-                   for seed in seeds]
-        results = ray.get(futures)
-        
-        n_samples = X.shape[0]
-        W = np.zeros((n_samples, n_samples))
+
+        km_futures = [
+            _generate_single_clustering.remote(X_ref, n_clusters, n_init, seed)
+            for seed in seeds
+        ]
+        results = ray.get(km_futures)
+
         G_list = []
         F_list = []
         labels_list = []
         metrics_list = [] if y_true is not None else None
-        
+
         for labels, centers in results:
-            G_dense = np.zeros((n_samples, n_clusters))
-            for j in range(n_samples):
-                G_dense[j, labels[j]] = 1
-            G = csr_matrix(G_dense)
-            
-            G_list.append(G)
+            G_dense = np.eye(n_clusters, dtype=np.float64)[labels]
+            G_list.append(G_dense)
             F_list.append(centers)
             labels_list.append(labels)
-            
-            W += G_dense @ G_dense.T
-            
+
             if y_true is not None:
                 metrics = clustering_measure(y_true, labels)
                 metrics_list.append(metrics)
-        
-        W = W / m_base
-        
+
         base_data = {
-            "W": W,
             "G": G_list,
             "F": F_list,
             "labels": labels_list,
         }
-        
+
         if y_true is not None:
             base_data["metrics"] = metrics_list
-        
+
         return base_data
 
-    n_samples = X.shape[0]
-
-    W = np.zeros((n_samples, n_samples))
     G_list = []
     F_list = []
     labels_list = []
@@ -132,26 +124,17 @@ def generate_base_clusterings(
             X, n_clusters=n_clusters, max_iter=100, n_init=n_init, random_state=seed
         )
 
-        G = csr_matrix((n_samples, n_clusters))
-        G_dense = np.zeros((n_samples, n_clusters))
-        for j in range(n_samples):
-            G_dense[j, labels[j]] = 1
-        G = csr_matrix(G_dense)
+        G_dense = np.eye(n_clusters, dtype=np.float64)[labels]
 
-        G_list.append(G)
+        G_list.append(G_dense)
         F_list.append(centers)
         labels_list.append(labels)
-
-        W += G_dense @ G_dense.T
 
         if y_true is not None:
             metrics = clustering_measure(y_true, labels)
             metrics_list.append(metrics)
 
-    W = W / m_base
-
     base_data = {
-        "W": W,
         "G": G_list,
         "F": F_list,
         "labels": labels_list,
@@ -179,11 +162,7 @@ def save_base_clusterings(
         Output format ('pickle', 'mat', 'npz')
 
     """
-
-    save_data = base_data.copy()
-    save_data["G"] = [G.toarray() if hasattr(G, "toarray") else G for G in base_data["G"]]
-
-    save_results(save_data, filepath, format=format)
+    save_results(base_data, filepath, format=format)
 
 
 def load_base_clusterings(filepath: str, format: str = "auto") -> Dict[str, any]:
@@ -213,10 +192,8 @@ def load_base_clusterings(filepath: str, format: str = "auto") -> Dict[str, any]
         with open(filepath, "rb") as f:
             base_data = pickle.load(f)
     elif format == "mat":
-
         data = loadmat(filepath)
         base_data = {
-            "W": data["W"],
             "G": [data[f"G_{i}"] for i in range(len([k for k in data.keys() if k.startswith("G_")]))],
             "F": [data[f"F_{i}"] for i in range(len([k for k in data.keys() if k.startswith("F_")]))],
         }
@@ -225,10 +202,5 @@ def load_base_clusterings(filepath: str, format: str = "auto") -> Dict[str, any]
         base_data = dict(data)
     else:
         raise ValueError(f"Unsupported format: {format}")
-
-    if "G" in base_data:
-        base_data["G"] = [
-            csr_matrix(G) if not hasattr(G, "toarray") else G for G in base_data["G"]
-        ]
 
     return base_data

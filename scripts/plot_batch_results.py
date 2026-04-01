@@ -49,6 +49,14 @@ def make_plot(ns, seq, ray, title, ylabel, output_path):
     plt.close()
 
 
+def _k_label(stem: str) -> str:
+    if 'ndiv10' in stem or 'n_div_10' in stem:
+        return 'k = n/10'
+    if 'sqrtk' in stem or 'sqrt' in stem:
+        return 'k = √n'
+    return ''
+
+
 def main():
     parser = argparse.ArgumentParser(description='Plot benchmark results from a JSON file')
     parser.add_argument('input', nargs='?', default='benchmarks/batch_results_sqrtk.json',
@@ -62,20 +70,25 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     stem = input_path.stem
+    k_label = _k_label(stem)
+    k_suffix = f', {k_label}' if k_label else ''
     data = load_results(str(input_path))
     results = data['results']
 
-    ns, seq, ray = aggregate(results, 'acmk', 'total_time')
-    make_plot(ns, seq, ray, 'ACMK Average Total Time vs n', 'Total time (s)', output_dir / f'acmk_total_time_{stem}.png')
-
     ns, seq, ray = aggregate(results, 'acmk', 'algorithm_time')
-    make_plot(ns, seq, ray, 'ACMK Average Algorithm Time vs n', 'Algorithm time (s)', output_dir / f'acmk_algorithm_time_{stem}.png')
-
-    ns, seq, ray = aggregate(results, 'sdgca', 'total_time')
-    make_plot(ns, seq, ray, 'SDGCA Average Total Time vs n', 'Total time (s)', output_dir / f'sdgca_total_time_{stem}.png')
+    if any(v is not None for v in seq + ray):
+        make_plot(ns, seq, ray, f'ACMK Algorithm Time vs n{k_suffix}', 'Algorithm time (s)',
+                  output_dir / f'acmk_algorithm_time_{stem}.png')
 
     ns, seq, ray = aggregate(results, 'sdgca', 'algorithm_time')
-    make_plot(ns, seq, ray, 'SDGCA Average Algorithm Time vs n', 'Algorithm time (s)', output_dir / f'sdgca_algorithm_time_{stem}.png')
+    if any(v is not None for v in seq + ray):
+        make_plot(ns, seq, ray, f'SDGCA Algorithm Time vs n{k_suffix}', 'Algorithm time (s)',
+                  output_dir / f'sdgca_algorithm_time_{stem}.png')
+
+    ns, seq, ray = aggregate(results, 'base_clustering', 'algorithm_time')
+    if any(v is not None for v in seq + ray):
+        make_plot(ns, seq, ray, f'Base Clustering Time vs n{k_suffix}', 'Time (s)',
+                  output_dir / f'base_clustering_time_{stem}.png')
 
     print('Generated plots:')
     for p in sorted(output_dir.glob('*.png')):

@@ -3,6 +3,9 @@
 ## Quick start
 
 ```bash
+# Benchmark base clustering only (k-means, no consensus step)
+python scripts/run_benchmark.py base_clustering --sizes 1000 5000 10000 --k-mode n_div_10 --m 10 --output benchmarks/base_clustering_run.json
+
 # Run ACMK (sequential + Ray) on n=1000, k=10
 python scripts/run_benchmark.py acmk --sizes 1000 --k 10 --m 10 --output benchmarks/acmk_n1000.json
 
@@ -16,7 +19,7 @@ Results are saved incrementally — if the job is interrupted, re-running with t
 
 | Argument | Description | Default |
 |---|---|---|
-| `algorithm` | `acmk` or `sdgca` | required |
+| `algorithm` | `acmk`, `sdgca`, or `base_clustering` | required |
 | `--sizes` | One or more dataset sizes | required |
 | `--output` | Output JSON file path | required |
 | `--k` | Number of clusters | `5` |
